@@ -1,0 +1,9 @@
+{
+	"servers": {
+		"my-mcp-server-78f6b4ad": {
+			"url": "http://127.0.0.1:8001/sse",
+			"type": "http"
+		}
+	},
+	"inputs": []
+}
