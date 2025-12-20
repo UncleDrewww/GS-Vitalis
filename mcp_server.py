@@ -13,6 +13,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import webbrowser
+import yaml # 需要 pip install pyyaml
 from scipy import signal
 
 # 设置 Matplotlib 后端为非交互式，防止在服务器端弹出窗口报错
@@ -30,7 +31,128 @@ mcp = FastMCP(port=8001)
 # 第一层：底层实现 (Implementation Layer)
 # ==============================================================================
 
+# 全局缓存配置，避免频繁IO
+_SAT_CONFIG_CACHE = None
+
 def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    [重构版] 读取 satellites.yaml 获取代号。
+    支持中文模糊查询自动映射到 YAML Key。
+    """
+    global _SAT_CONFIG_CACHE
+    
+    # 1. 加载配置 (带缓存)
+    if _SAT_CONFIG_CACHE is None:
+        yaml_path = os.path.join(os.path.dirname(__file__), "doc", "satellites.yaml")
+        if os.path.exists(yaml_path):
+            try:
+                with open(yaml_path, 'r', encoding='utf-8') as f:
+                    _SAT_CONFIG_CACHE = yaml.safe_load(f)
+            except Exception as e:
+                print(f"YAML 加载失败: {e}")
+                return None, None
+        else:
+            print(f"配置文件未找到: {yaml_path}")
+            return None, None
+
+    config = _SAT_CONFIG_CACHE.get('satellites', {})
+    satellite_name = (satellite_name or "").strip().upper()
+    query = (query or "").strip()
+
+    # 2. 查找卫星 (匹配 ID, Name 或 Aliases)
+    target_sat_config = None
+    target_db_table = None
+
+    for sat_id, sat_data in config.items():
+        # 检查 ID
+        match = (sat_id.upper() == satellite_name)
+        # 检查 name
+        if not match and sat_data.get('name') and sat_data['name'].upper() == satellite_name:
+            match = True
+        # 检查 aliases
+        if not match and 'aliases' in sat_data:
+            if any(alias.upper() == satellite_name for alias in sat_data['aliases']):
+                match = True
+        
+        if match:
+            target_sat_config = sat_data
+            target_db_table = sat_data.get('db_table')
+            break
+    
+    if not target_sat_config:
+        print(f"警告: 未找到卫星 '{satellite_name}' 的配置")
+        return None, None
+
+    # 3. 查找遥测代号 (Query 映射逻辑)
+    telemetry_map = target_sat_config.get('telemetry', {})
+    
+    # 定义中文查询词到 YAML Key 的映射关系
+    # 格式: "查询关键词": ["优先匹配的YAML Key", "备选Key"...]
+    KEYWORD_MAP = {
+        # --- 姿态敏感器 ---
+        "星敏A": ["star_sensor_a"],
+        "星敏B": ["star_sensor_b"],
+        "星敏":   ["star_sensor_a"], # 默认查A
+        "陀螺A": ["gyro_a"],
+        "陀螺B": ["gyro_b"],
+        "陀螺":   ["gyro_a"],
+        
+        # --- 执行机构 ---
+        "飞轮A": ["wheel_a"],
+        "飞轮B": ["wheel_b"],
+        "飞轮C": ["wheel_c"],
+        "飞轮D": ["wheel_d"],
+        "电推":   ["propulsion"],
+        
+        # --- 综合 ---
+        "姿态":   ["attitude_control"],
+        "控制":   ["attitude_control"],
+        "热变形": ["thermal_deformation"],
+        "位置":   ["orbit_position"],
+        "半长轴": ["orbit_semimajor_axis"],
+        "LTDN":  ["orbit_ltdn"],
+        "降交点": ["orbit_ltdn"],
+        "纬度":   ["latitude"],
+        "星数":   ["gnss_stars"],
+
+        # --- 故障 ---
+        "敏感器错误": ["error_sensors"],
+        "执行器错误": ["error_actuators"],
+        "GNSS错误":  ["error_gnss"], # 用于检测故障段
+        "故障置出":   ["fault_gnss_count"], # 用于统计总数
+    }
+
+    found_key = None
+    
+    # 逻辑 A: 直接匹配 YAML Key (如果调用方传的是标准 Key)
+    if query in telemetry_map:
+        found_key = query
+        
+    # 逻辑 B: 关键词模糊匹配
+    if not found_key:
+        for keyword, candidate_keys in KEYWORD_MAP.items():
+            if keyword in query:
+                for key in candidate_keys:
+                    if key in telemetry_map:
+                        found_key = key
+                        break
+            if found_key: break
+            
+    # 逻辑 C: 兜底匹配 (如果 query 包含 YAML Key 的一部分)
+    if not found_key:
+        for tm_key in telemetry_map.keys():
+            if tm_key in query: # 比如 query="check_wheel_a"
+                found_key = tm_key
+                break
+
+    if found_key:
+        tm_entry = telemetry_map[found_key]
+        # YAML 里可以存 string 也可以存 object
+        code_str = tm_entry.get('code') if isinstance(tm_entry, dict) else tm_entry
+        return target_db_table, code_str
+
+    print(f"警告: 在卫星 '{satellite_name}' 中未找到匹配 '{query}' 的遥测项。")
+    return target_db_table, None
     """
     内部逻辑：读取 CSV 获取代号。
     """

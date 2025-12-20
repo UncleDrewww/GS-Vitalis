@@ -1,0 +1,118 @@
+# ==============================================================================
+# 卫星姿轨控遥测配置库 (Satellites Telemetry Configuration)
+# 格式: YAML
+# ==============================================================================
+
+satellites:
+  # ----------------------------------------------------------------------------
+  # 卫星标识: LZ04 (江淮)
+  # ----------------------------------------------------------------------------
+  LZ04:
+    name: "江淮"
+    aliases: ["LZ-04", "LZ04", "江淮", "tm_all_LZ04"]
+    db_table: "tm_all_LZ04"
+    description: "示例卫星 LZ04"
+    
+    telemetry:
+      # --- 姿态敏感器 (Attitude Sensors) ---
+      star_sensor_a: 
+        code: "TMKP808,TMKP809,TMKP810,TMKP811,TMKP812"
+        desc: "星敏A (Time, Q1, Q2, Q3, Q0)"
+      
+      star_sensor_b: 
+        code: "TMKP813,TMKP814,TMKP815,TMKP816,TMKP817"
+        desc: "星敏B (Time, Q1, Q2, Q3, Q0)"
+
+      gyro_a:
+        code: "package_time_seconds_0505,TMKP608,TMKP609,TMKP610"
+        desc: "陀螺A (Time, X, Y, Z)"
+
+      gyro_b:
+        code: "package_time_seconds_0505,TMKP611,TMKP612,TMKP613"
+        desc: "陀螺B (Time, X, Y, Z)"
+
+      # --- 执行机构 (Actuators) ---
+      wheel_a: { code: "package_time_seconds_050A,TMKQ107,TMKQ103", desc: "飞轮A (Time, Cmd, Fbk)" }
+      wheel_b: { code: "package_time_seconds_050A,TMKQ108,TMKQ104", desc: "飞轮B" }
+      wheel_c: { code: "package_time_seconds_050A,TMKQ109,TMKQ105", desc: "飞轮C" }
+      wheel_d: { code: "package_time_seconds_050A,TMKQ110,TMKQ106", desc: "飞轮D" }
+      
+      propulsion:
+        code: "TMKR322,TMKR323"
+        desc: "电推 (时长, 次数)"
+
+      # --- 综合系统指标 (System Metrics) ---
+      attitude_control:
+        code: "package_time_seconds_0502,TMKP326,TMKP327,TMKP328,TMKP329,TMKP330,TMKP331"
+        desc: "姿态控制精度 (Time, Ang_X,Y,Z, Rate_X,Y,Z)"
+
+      orbit_position:
+        code: "TMKP501,TMKP502,TMKP503,TMKP504,TMKP505,TMKP506,TMKP507"
+        desc: "位置速度"
+
+      orbit_semimajor_axis:
+        code: "TMKP417"
+        desc: "平根半长轴"
+        
+      orbit_ltdn:
+        code: "TMKP201"
+        desc: "降交点地方时"
+
+      # --- 故障诊断与状态 (Fault & Status) ---
+      thermal_deformation:
+        code: "package_time_seconds_0507,TMKP809,TMKP810,TMKP811,TMKP812,TMKP814,TMKP815,TMKP816,TMKP817"
+        desc: "热变形分析 (Time, A_Quats, B_Quats)"
+
+      error_sensors:
+        code: "TMKA601,TMKA617,TMKA633,TMKA646,TMKA659,TMKA666"
+        desc: "敏感器错误统计 (陀螺A/B, 磁A/B, 星A/B)"
+
+      error_actuators:
+        code: "TMKA673,TMKA679,TMKA685,TMKA691,TMKA697" # 已修复原CSV中的 MKA673 拼写错误
+        desc: "执行器错误统计 (飞轮A/B/C/D, GNSS)"
+
+      error_gnss:
+        code: "package_time_seconds_0531,TMKA697"
+        desc: "GNSS错误计数 (Time, ErrCount)"
+
+      fault_gnss_count:
+        code: "TMKA736"
+        desc: "GNSS故障置出计数"
+
+      gnss_stars:
+        code: "TMKa1412,TMKa1414"
+        desc: "GNSS定位星数"
+      
+      latitude:
+        code: "TMKP222"
+        desc: "卫星纬度"
+
+  # ----------------------------------------------------------------------------
+  # 卫星标识: XW04 (示例卫星)
+  # ----------------------------------------------------------------------------
+  XW04:
+    name: "XW-04"
+    aliases: ["XW_04", "XW04", "XW 04"]
+    db_table: "XW_04"
+    telemetry:
+      status: { code: "TMKP500,TMKP501", desc: "状态标志|温度" }
+
+  # ----------------------------------------------------------------------------
+  # 卫星标识: ZQ01 (示例卫星)
+  # ----------------------------------------------------------------------------
+  ZQ01:
+    name: "ZQ-01"
+    aliases: ["ZQ_01", "ZQ01"]
+    db_table: "ZQ_01"
+    telemetry:
+      power_temp: { code: "TMKP600", desc: "电源温度" }
+
+  # ----------------------------------------------------------------------------
+  # 卫星标识: YX02 (遥测二号)
+  # ----------------------------------------------------------------------------
+  YX02:
+    name: "遥测二号"
+    aliases: ["YX_02", "YX-2", "YX02"]
+    db_table: "YX_02"
+    telemetry:
+      power_metrics: { code: "TMKP700,TMKP701,TMKP702", desc: "电源|电流|电压" }
