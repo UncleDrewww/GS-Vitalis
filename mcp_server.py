@@ -153,58 +153,6 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
 
     print(f"警告: 在卫星 '{satellite_name}' 中未找到匹配 '{query}' 的遥测项。")
     return target_db_table, None
-    """
-    内部逻辑：读取 CSV 获取代号。
-    """
-    satellite_name = (satellite_name or "").strip()
-    query = (query or "").strip()
-
-    csv_path1 = os.path.join(os.path.dirname(__file__), "doc", "satellites.csv")
-    csv_path2 = os.path.join(os.path.dirname(__file__), "doc", "satellite.csv")
-    csv_path = csv_path1 if os.path.exists(csv_path1) else (csv_path2 if os.path.exists(csv_path2) else None)
-    
-    if csv_path:
-        try:
-            df = pd.read_csv(csv_path, dtype=str)
-            for col in ['satellite_name', 'satellite_code', 'telemetry_code', 'telemetry_label']:
-                if col in df.columns:
-                    df[col] = df[col].fillna('').astype(str)
-            
-            name_mask = df['satellite_name'].str.contains(satellite_name, case=False, na=False)
-            if 'satellite_code' in df.columns:
-                name_mask |= df['satellite_code'].str.contains(satellite_name, case=False, na=False)
-            
-            satellite_rows = df[name_mask]
-            
-            if not satellite_rows.empty:
-                if query:
-                    query_mask = pd.Series(False, index=satellite_rows.index)
-                    if 'telemetry_label' in satellite_rows.columns:
-                        query_mask |= satellite_rows['telemetry_label'].str.contains(query, case=False, na=False)
-                    if 'description' in satellite_rows.columns:
-                        query_mask |= satellite_rows['description'].str.contains(query, case=False, na=False)
-                    
-                    matched_rows = satellite_rows[query_mask]
-                    if not matched_rows.empty:
-                        return matched_rows.iloc[0]['satellite_code'], matched_rows.iloc[0]['telemetry_code']
-                
-                return satellite_rows.iloc[0]['satellite_code'], satellite_rows.iloc[0]['telemetry_code']
-
-        except Exception as e:
-            print(f"CSV 读取或匹配出错: {e}")
-
-    # 兜底逻辑
-    if "江淮" in satellite_name or "LZ04" in satellite_name.upper():
-        sat_code = "tm_all_LZ04"
-        if "星敏" in query:
-            return sat_code, "TMKP808,TMKP809,TMKP810,TMKP811,TMKP812"
-        elif "姿态" in query or "控制" in query:
-            return sat_code, "package_time_seconds_0502,TMKP326,TMKP327,TMKP328,TMKP329,TMKP330,TMKP331"
-        else:
-            return sat_code, "TMKP501,TMKP502,TMKP503,TMKP504,TMKP505,TMKP506,TMKP507"
-
-    print(f"警告: 未找到卫星 '{satellite_name}' 且 query '{query}' 无匹配。")
-    return None, None
 
 def _get_data_impl(satellite_code: str, telemetry_code: str, start_time_str: str = None, end_time_str: str = None) -> pd.DataFrame:
     """
