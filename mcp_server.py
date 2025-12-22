@@ -1040,6 +1040,90 @@ def _wrap_html_report(body_content: str, title: str) -> str:
     except Exception as e:
         return f"报告生成失败: {e}"
 
+def _generate_final_report_content(check_results: List[Dict], part1_html: str, part2_html: str, part3_html: str) -> str:
+    """
+    [通用功能] 生成卫星体检报告的内部 HTML 内容，包含仪表盘和分章节正文。
+    """
+    # --- 1. 数据统计 ---
+    total_checks = len(check_results)
+    anomalies = [r for r in check_results if r.get('is_abnormal')]
+    count_abnormal = len(anomalies)
+    
+    # --- 2. 仪表盘样式与状态判定 ---
+    if count_abnormal > 0:
+        status_color = "#e53e3e"  # 红色
+        status_bg = "#fff5f5"
+        status_icon = "⚠️"
+        status_text = "存在风险"
+        
+        # 构造异常列表 HTML
+        anomaly_items = ""
+        for item in anomalies:
+            anomaly_items += f"""
+            <li style="margin-bottom: 8px; padding: 10px; background: white; border-left: 4px solid {status_color}; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <strong style="color: {status_color};">[{item.get('name', '未知项')}]</strong> 
+                <span style="color: #4a5568; margin-left: 10px;">{item.get('summary', '未提供摘要')}</span>
+            </li>"""
+        anomaly_list_html = f"""
+        <div style="margin-top: 20px;">
+            <div style="font-size: 13px; color: #718096; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">异常详情</div>
+            <ul style="list-style: none; padding: 0; margin: 0;">{anomaly_items}</ul>
+        </div>"""
+    else:
+        status_color = "#2f855a"  # 绿色
+        status_bg = "#f0fff4"
+        status_icon = "✅"
+        status_text = "状态良好"
+        anomaly_list_html = f"""
+        <div style="margin-top: 20px; padding: 15px; background: white; color: {status_color}; text-align: center; border-radius: 6px; border: 1px dashed {status_color}80;">
+            🎉 所有检测项均符合设计指标要求
+        </div>"""
+
+    # --- 3. 构造仪表盘 HTML ---
+    dashboard_html = f"""
+    <div style="background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; margin-bottom: 40px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <h2 style="margin-top:0; color: #2d3748; border-bottom: 2px solid #edf2f7; padding-bottom: 15px; display: flex; align-items: center;">
+            <span style="margin-right: 10px;">🩺</span> 卫星在轨状态健康摘要
+        </h2>
+        <div style="display: flex; gap: 20px; margin-top: 20px;">
+            <div style="flex: 1; background: #f7fafc; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #cbd5e0;">
+                <div style="font-size: 36px; font-weight: bold; color: #4a5568;">{total_checks}</div>
+                <div style="color: #718096; font-size: 13px; font-weight: bold; margin-top: 5px;">检测总数</div>
+            </div>
+            <div style="flex: 1; background: {status_bg}; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid {status_color}40;">
+                <div style="font-size: 36px; font-weight: bold; color: {status_color};">{count_abnormal}</div>
+                <div style="color: {status_color}; font-size: 13px; font-weight: bold; margin-top: 5px;">异常数量 {status_icon}</div>
+            </div>
+        </div>
+        {anomaly_list_html}
+    </div>
+    """
+
+    # --- 4. 辅助函数：分节标题 ---
+    def make_header(title, icon):
+        return f"""
+        <div style="margin-top: 60px; margin-bottom: 25px; border-left: 6px solid #3498db; padding-left: 15px; background: linear-gradient(to right, #eef2f7, transparent); padding-top: 10px; padding-bottom: 10px;">
+            <h1 style="margin: 0; color: #2c3e50; font-size: 22px; display: flex; align-items: center;">
+                <span style="margin-right: 10px;">{icon}</span> {title}
+            </h1>
+        </div>"""
+
+    # --- 5. 拼装总正文 ---
+    full_body = dashboard_html
+    
+    if part1_html and len(part1_html.strip()) > 0:
+        full_body += make_header("第一部分：单机性能评估", "⚙️")
+        full_body += part1_html
+        
+    if part2_html and len(part2_html.strip()) > 0:
+        full_body += make_header("第二部分：系统性能评估", "🛰️")
+        full_body += part2_html
+        
+    if part3_html and len(part3_html.strip()) > 0:
+        full_body += make_header("第三部分：结构热变形分析", "🌡️")
+        full_body += part3_html
+
+    return full_body
 # ==============================================================================
 # 第二层：原子工具 (Atomic Tools)
 # ==============================================================================
@@ -1668,6 +1752,127 @@ def assess_satellite_status(satellite_name: str, start_time_str: str = None, end
         full_body += html_part3_thermal
 
     return _wrap_html_report(full_body, f"{satellite_name} 状态全检报告")
+
+@mcp.tool(description="""[月度评估] 自动化执行在轨卫星月度性能体检。
+1. 性能项(星敏/陀螺/飞轮): 采样每月15日0点的3分钟高频数据。
+2. 热变形: 采样每月15日开始的24小时数据，分析轨道周期性漂移。
+3. 系统项(姿态/轨道/通信/电推): 统计全月完整数据。
+""")
+def assess_monthly_performance(satellite_name: str, year_month: str = None) -> str:
+    """
+    year_month 格式: '2023-10'。如果不传，默认评估当前月。
+    """
+    # --- 1. 时间窗口计算 ---
+    if year_month:
+        try:
+            target_dt = datetime.strptime(year_month, '%Y-%m')
+        except:
+            return "错误：月份格式应为 YYYY-MM，例如 2023-10"
+    else:
+        target_dt = datetime.now().replace(day=1)
+
+    # A. 全月窗口 (用于：姿态控精、通信错误、轨道高度、LTDN、电推)
+    month_start_str = target_dt.strftime('%Y-%m-01 00:00:00')
+    if target_dt.month == 12:
+        next_month = target_dt.replace(year=target_dt.year + 1, month=1)
+    else:
+        next_month = target_dt.replace(month=target_dt.month + 1)
+    month_end_str = (next_month - timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
+
+    # B. 3分钟采样窗口 (用于：星敏噪声、陀螺噪声、飞轮精度)
+    sample_3m_start = target_dt.replace(day=15, hour=0, minute=0, second=0)
+    sample_3m_end = sample_3m_start + timedelta(minutes=3)
+    s3m_start_str = sample_3m_start.strftime('%Y-%m-%d %H:%M:%S')
+    s3m_end_str = sample_3m_end.strftime('%Y-%m-%d %H:%M:%S')
+
+    # C. 24小时热变形窗口 (用于：星敏光轴夹角热稳定性)
+    sample_1d_start = sample_3m_start # 同样从15号0点开始
+    sample_1d_end = sample_1d_start + timedelta(days=1)
+    s1d_start_str = sample_1d_start.strftime('%Y-%m-%d %H:%M:%S')
+    s1d_end_str = sample_1d_end.strftime('%Y-%m-%d %H:%M:%S')
+
+    print(f">>> 启动 {satellite_name} 月度评估报告生成")
+    print(f">>> [性能采样] {s3m_start_str} (3min)")
+    print(f">>> [热变形窗] {s1d_start_str} (24h)")
+    print(f">>> [全月统计] {month_start_str} 至 {month_end_str}")
+
+    base_sat_code, _ = _get_codes_impl(satellite_name, "任意")
+    if not base_sat_code: return f"错误：未找到卫星 {satellite_name}"
+
+    check_results = []
+    html_part1_components = "" 
+    html_part2_system = ""      
+    html_part3_thermal = ""     
+
+    # --- 2. 执行分析 (分窗口调用) ---
+
+    # [3分钟采样] 星敏、陀螺、飞轮
+    for label in ["星敏A", "星敏B"]:
+        sat_code, tm_code = _get_codes_impl(satellite_name, label)
+        if sat_code and tm_code:
+            df = _get_data_impl(sat_code, tm_code, s3m_start_str, s3m_end_str)
+            res = _analyze_star_sensor_impl(df, sensor_name=label)
+            check_results.append({"name": label, **res})
+            html_part1_components += res['html']
+
+    for cfg in [{"name": "陀螺A", "limit": 0.0004}, {"name": "陀螺B", "limit": 0.0020}]:
+        sat_code, tm_code = _get_codes_impl(satellite_name, cfg["name"])
+        if sat_code and tm_code:
+            df = _get_data_impl(sat_code, tm_code, s3m_start_str, s3m_end_str)
+            res = _analyze_gyro_impl(df, cfg["name"], cfg["limit"])
+            check_results.append({"name": cfg["name"], **res})
+            html_part1_components += res['html']
+
+    for fw in ["飞轮A", "飞轮B", "飞轮C", "飞轮D"]:
+        sat_code, tm_code = _get_codes_impl(satellite_name, fw)
+        if sat_code and tm_code:
+            df = _get_data_impl(sat_code, tm_code, s3m_start_str, s3m_end_str)
+            res = _analyze_wheel_impl(df, fw, 0.5)
+            check_results.append({"name": fw, **res})
+            html_part1_components += res['html']
+
+    # [全月统计] 通信错误
+    dev_results, dev_html = _analyze_device_errors_impl(base_sat_code, month_start_str, month_end_str)
+    check_results.extend(dev_results)
+    html_part1_components += dev_html
+
+    # [全月统计] 姿态控制性能 (重点：这里改用全月窗口)
+    sat_code, tm_code = _get_codes_impl(satellite_name, "姿态")
+    if sat_code and tm_code:
+        df = _get_data_impl(sat_code, tm_code, month_start_str, month_end_str)
+        res = _analyze_attitude_impl(df)
+        check_results.append({"name": "月度姿态控制", **res})
+        html_part2_system += res['html']
+
+    # [全月统计] 轨道与电推
+    for item in ["平根半长轴", "降交点"]:
+        sat_code, tm_code = _get_codes_impl(satellite_name, item)
+        if sat_code and tm_code:
+            df = _get_data_impl(sat_code, tm_code, month_start_str, month_end_str)
+            if "半长轴" in item: res = _analyze_orbit_impl(df)
+            else: res = _analyze_ltdn_impl(df)
+            check_results.append({"name": f"月度{item}", **res})
+            html_part2_system += res['html']
+
+    sat_code, tm_code = _get_codes_impl(satellite_name, "电推")
+    if sat_code and tm_code:
+        df = _get_data_impl(sat_code, tm_code, month_start_str, month_end_str)
+        res = _analyze_propulsion_impl(df)
+        check_results.append({"name": "月度电推系统", **res})
+        html_part2_system += res['html']
+
+    # [24小时采样] 热变形分析
+    _, html_thermal = _analyze_thermal_impl(base_sat_code, s1d_start_str, s1d_end_str)
+    check_results.append({"name": "结构热稳定性(24h)", "is_abnormal": False, "summary": "已分析", "html": html_thermal})
+    html_part3_thermal = html_thermal
+
+    # --- 3. 生成最终报告 (调用共用的 HTML 拼装逻辑) ---
+    title = f"{satellite_name} {target_dt.strftime('%Y年%m月')} 在轨运行月度分析报告"
+    
+    # 这里的 _generate_final_report_content 是一个建议抽离的函数，见下文
+    full_content = _generate_final_report_content(check_results, html_part1_components, html_part2_system, html_part3_thermal)
+    
+    return _wrap_html_report(full_content, title)
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
