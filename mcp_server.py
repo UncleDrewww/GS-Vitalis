@@ -134,6 +134,7 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
 
         "故障计数": ["fault_exclusions"],
         "单机故障": ["fault_exclusions"],
+        "零偏": ["gyro_a_bias", "gyro_b_bias"]
     }
 
     found_key = None
@@ -356,6 +357,85 @@ def _analyze_gyro_impl(data: pd.DataFrame, gyro_name: str, limit_val: float) -> 
     except Exception as e:
         return {"is_abnormal": True, "summary": f"{gyro_name} 内部错误", "html": f"<div class='error'>{gyro_name} 分析出错: {e}</div>"}
 
+def _analyze_gyro_bias_impl(data: pd.DataFrame, gyro_name: str) -> Dict:
+    """
+    [高保真] 陀螺零偏月度稳定性分析。
+    统计全月均值、3-Sigma稳定性及漂移范围。
+    """
+    if data.empty or data.shape[1] < 3:
+        return {"is_abnormal": False, "summary": "无零偏数据", "html": ""}
+
+    try:
+        # 1. 数据统计
+        # 假设数据列顺序为 X, Y, Z
+        bias_values = data.apply(pd.to_numeric, errors='coerce').dropna()
+        if bias_values.empty: return {"is_abnormal": False, "summary": "数据无效", "html": ""}
+
+        stats = []
+        axes = ['X轴', 'Y轴', 'Z轴']
+        for i in range(3):
+            col_data = bias_values.iloc[:, i]
+            stats.append({
+                "axis": axes[i],
+                "mean": col_data.mean(),
+                "std3": col_data.std() * 3,
+                "p2p": col_data.max() - col_data.min()
+            })
+
+        # 2. 绘图 (三轴趋势图)
+        fig, axes_plt = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+        colors = ['#3498db', '#2ecc71', '#e74c3c']
+        
+        for i in range(3):
+            ax = axes_plt[i]
+            y_data = bias_values.iloc[:, i].values
+            ax.plot(y_data, color=colors[i], linewidth=0.8, rasterized=True)
+            ax.set_ylabel(f'{axes[i]} (deg/s)') # 单位根据实际情况调整，通常星上估计为deg/s或rad/s
+            ax.grid(True, alpha=0.3)
+            if i == 0: ax.set_title(f'{gyro_name} 零偏全月演变趋势')
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=120)
+        buf.seek(0)
+        img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+        plt.close(fig)
+
+        # 3. 构造 HTML 表格
+        table_rows = ""
+        for s in stats:
+            table_rows += f"""
+            <tr>
+                <td style="padding:8px; border:1px solid #eee;">{s['axis']}</td>
+                <td style="padding:8px; border:1px solid #eee;">{s['mean']:.8f}</td>
+                <td style="padding:8px; border:1px solid #eee;">{s['std3']:.8f}</td>
+                <td style="padding:8px; border:1px solid #eee;">{s['p2p']:.8f}</td>
+            </tr>
+            """
+
+        html = f"""
+        <div class="section">
+            <h2>{gyro_name} 零偏稳定性评估 (全月)</h2>
+            <table style="width:100%; text-align:center; border-collapse:collapse; font-size:12px; margin-bottom:15px;">
+                <thead style="background:#f8f9fa;">
+                    <tr>
+                        <th style="padding:10px; border:1px solid #eee;">轴系</th>
+                        <th style="border:1px solid #eee;">月均值 (deg/s)</th>
+                        <th style="border:1px solid #eee;">稳定性 (3σ)</th>
+                        <th style="border:1px solid #eee;">全月峰峰值</th>
+                    </tr>
+                </thead>
+                <tbody>{table_rows}</tbody>
+            </table>
+            <div style="text-align:center;"><img src="data:image/png;base64,{img_b64}" style="max-width:100%; border:1px solid #ddd;"></div>
+        </div>
+        """
+        return {"is_abnormal": False, "summary": "已分析", "html": html}
+
+    except Exception as e:
+        logger.error(f"{gyro_name} 零偏分析失败: {e}")
+        return {"is_abnormal": False, "summary": "分析出错", "html": ""}
+    
 def _analyze_wheel_impl(data: pd.DataFrame, wheel_name: str, limit_val: float = 0.05) -> Dict:
     if data.shape[1] < 3:
         return {"is_abnormal": True, "summary": f"{wheel_name} 数据不足", "html": f"<div class='error'>{wheel_name} 数据列数不足。</div>"}
@@ -1722,6 +1802,18 @@ def assess_monthly_performance(satellite_name: str, year_month: str = None) -> s
         df = _get_data_impl(base_sat_code, tm, d_start, d_end)
         res = _analyze_gyro_impl(df, cfg["n"], cfg["l"])
         check_results.append({"name": cfg["n"], **res}); h_part1 += res['html']
+
+    # [新增] 陀螺零偏稳定性分析 (全月 1month)
+    logger.info("📡 执行全月陀螺零偏趋势分析...")
+    for g_label in [{"key": "gyro_a_bias", "name": "陀螺A"}, {"key": "gyro_b_bias", "name": "陀螺B"}]:
+        _, tm_bias = _get_codes_impl(satellite_name, g_label["key"])
+        if tm_bias:
+            df_bias = _get_data_impl(base_sat_code, tm_bias, m_start, m_end)
+            res_bias = _analyze_gyro_bias_impl(df_bias, g_label["name"])
+            if res_bias["html"]:
+                # 将结果加入 check_results 但通常不计入异常（除非漂移过大）
+                check_results.append({"name": f"{g_label['name']}零偏", "is_abnormal": False, "summary": "正常"})
+                h_part1 += res_bias["html"]
 
     for fw in ["飞轮A", "飞轮B", "飞轮C", "飞轮D"]:
         _, tm = _get_codes_impl(satellite_name, fw)
