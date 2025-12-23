@@ -134,7 +134,9 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
 
         "故障计数": ["fault_exclusions"],
         "单机故障": ["fault_exclusions"],
-        "零偏": ["gyro_a_bias", "gyro_b_bias"]
+        "零偏": ["gyro_a_bias", "gyro_b_bias"],
+        "控制模式": ["control_mode"],
+        "错误日志": ["error_log_count"],
     }
 
     found_key = None
@@ -1061,6 +1063,137 @@ def _analyze_thermal_impl(sat_code: str, start_str: str, end_str: str) -> Tuple[
     except Exception as e:
         return {"error": str(e)}, f"<div class='error'>计算过程出错: {e}</div>"
 
+def _analyze_system_faults_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
+    """
+    [系统级故障统计] 
+    1. 安全模式: 统计 TMKP040 跳变为 5 的次数。
+    2. 错误日志: 统计 TMKR012 的累计增量。
+    """
+    global _SAT_CONFIG_CACHE
+    if _SAT_CONFIG_CACHE is None: _get_codes_impl(satellite_name, "任意")
+
+    # 1. 定位卫星配置
+    target_sat_config = None
+    query = satellite_name.upper().strip()
+    for sid, sdata in _SAT_CONFIG_CACHE.get('satellites', {}).items():
+        if sid.upper() == query or sdata.get('name','').upper() == query or query in [a.upper() for a in sdata.get('aliases', [])]:
+            target_sat_config = sdata
+            break
+    
+    if not target_sat_config: return [], ""
+
+    # 2. 定义要检查的项目
+    # 格式: (配置Key, 显示名称, 逻辑类型)
+    check_items = [
+        ("control_mode", "控制模式监视", "safety_mode"),
+        ("error_log_count", "错误日志计数", "counter_inc")
+    ]
+    
+    # 3. 获取所有相关代号
+    telemetry_map = target_sat_config.get('telemetry', {})
+    codes_to_fetch = []
+    item_configs = {} # 存储 key -> code 映射
+
+    for key, label, logic in check_items:
+        entry = telemetry_map.get(key)
+        if entry:
+            code = entry.get('code') if isinstance(entry, dict) else entry
+            codes_to_fetch.append(code)
+            item_configs[key] = {"code": code, "label": label, "logic": logic}
+
+    if not codes_to_fetch:
+        return [], "<div style='color:#ccc; text-align:center;'>未配置系统级故障遥测</div>"
+
+    # 4. 拉取数据
+    codes_str = ",".join(codes_to_fetch)
+    db_table = target_sat_config.get('db_table')
+    df = _get_data_impl(db_table, codes_str, start_str, end_str)
+
+    # 5. 分析计算
+    results = []
+    table_rows = ""
+    
+    for key, label, logic in check_items:
+        if key not in item_configs: continue
+        
+        cfg = item_configs[key]
+        code = cfg["code"]
+        val_res = 0
+        is_abnormal = False
+        summary = "正常"
+        criterion_text = "-"
+
+        if df.empty or code not in df.columns:
+            val_text = "<span style='color:#ccc'>无数据</span>"
+        else:
+            series = pd.to_numeric(df[code], errors='coerce').dropna()
+            
+            if series.empty:
+                val_text = "<span style='color:#ccc'>无有效值</span>"
+            else:
+                # --- 逻辑 A: 安全模式检测 ---
+                if logic == "safety_mode":
+                    criterion_text = "进入安全模式(5)"
+                    # 检测上升沿: 当前=5 且 前一刻!=5
+                    is_safe = (series == 5)
+                    count = int((is_safe & (~is_safe.shift(1, fill_value=False))).sum())
+                    val_res = count
+                    if count > 0:
+                        is_abnormal = True
+                        summary = f"进入安全模式 {count} 次"
+                        val_text = f"<span style='color:#dc3545; font-weight:bold;'>{count} 次</span>"
+                    else:
+                        val_text = f"<span style='color:#28a745;'>0 次</span>"
+
+                # --- 逻辑 B: 计数器增量检测 ---
+                elif logic == "counter_inc":
+                    criterion_text = "计数增量"
+                    # 计算累计增量 (处理重置情况)
+                    diffs = series.diff().fillna(0)
+                    # 只统计正向增长 (忽略因复位导致的负值，或者假设复位后从0开始计数)
+                    # 如果需要处理循环计数(如uint16)，需要知道最大值。这里简化为统计所有正增量。
+                    increases = diffs[diffs > 0]
+                    total_inc = int(increases.sum())
+                    
+                    val_res = total_inc
+                    if total_inc > 0:
+                        is_abnormal = True
+                        summary = f"错误日志新增 {total_inc} 条"
+                        val_text = f"<span style='color:#dc3545; font-weight:bold;'>+{total_inc}</span>"
+                    else:
+                        val_text = f"<span style='color:#28a745;'>0</span>"
+
+        # 存入结果
+        if is_abnormal:
+            results.append({"name": label, "is_abnormal": True, "summary": summary})
+        
+        # 表格行
+        bg_style = "background:#fff5f5;" if is_abnormal else ""
+        table_rows += f"""
+        <tr style="{bg_style}">
+            <td style="padding:10px; border:1px solid #eee;">{cfg['label']}</td>
+            <td style="border:1px solid #eee;">{code}</td>
+            <td style="border:1px solid #eee; color:#666; font-size:12px;">{criterion_text}</td>
+            <td style="border:1px solid #eee;">{val_text}</td>
+        </tr>
+        """
+
+    # 6. 生成 HTML
+    html = f"""
+    <table style="width:100%; border-collapse:collapse; text-align:center; font-size:13px; margin-bottom:15px;">
+        <thead style="background:#f8f9fa;">
+            <tr>
+                <th style="padding:10px; border:1px solid #eee;">监测项目</th>
+                <th style="border:1px solid #eee;">遥测代号</th>
+                <th style="border:1px solid #eee;">统计判据</th>
+                <th style="border:1px solid #eee;">统计结果</th>
+            </tr>
+        </thead>
+        <tbody>{table_rows}</tbody>
+    </table>
+    """
+    return results, html
+
 def _analyze_fault_count_impl(sat_code: str, start_str: str, end_str: str) -> Tuple[Dict, str]:
     _, tm_code = _get_codes_impl(sat_code, "故障置出")
     if not tm_code: return {"error": "未配置"}, "<div class='error'>未配置代号</div>"
@@ -1364,21 +1497,18 @@ def _generate_final_report_content(check_results: List[Dict], adcs_subsections: 
     # 构造姿轨控内部的细分目录
     adcs_body = f"""
         <div style="margin-left:10px;">
-            <!-- 1. 单机故障统计 -->
             <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">1. 单机故障统计 (通信/故障置出)</h3>
-            {adcs_subsections.get('fault_stats', '')}
+            {adcs_subsections.get('fault_stats','')}
             
-            <!-- 2. 单机性能评估 -->
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:30px;">2. 单机性能评估</h3>
-            {adcs_subsections.get('unit_perf', '')}
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:25px;">2. 单机性能评估</h3>
+            {adcs_subsections.get('unit_perf','')}
             
-            <!-- 3. 系统故障统计 -->
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:30px;">3. 系统故障统计</h3>
-            <p style="color:#bbb; font-style:italic; font-size:13px; margin-top:10px;">(本月无系统级故障记录)</p>
+            <!-- 【更新】系统故障统计 -->
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:25px;">3. 系统故障统计</h3>
+            {adcs_subsections.get('sys_faults', '<p style="color:#bbb; font-style:italic;">(无相关数据)</p>')}
             
-            <!-- 4. 系统性能评估 -->
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:30px;">4. 系统性能评估 (姿态/轨道/电推)</h3>
-            {adcs_subsections.get('sys_perf', '')}
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:25px;">4. 系统性能评估 (姿态/轨道/电推)</h3>
+            {adcs_subsections.get('sys_perf','')}
         </div>
     """
 
@@ -1839,7 +1969,7 @@ def assess_monthly_performance(satellite_name: str, year_month: str = None) -> s
         base_sat_code, _ = _get_codes_impl(satellite_name, "任意")
         if not base_sat_code: return f"❌ 未找到卫星 {satellite_name} 配置"
 
-        check_results, adcs_subs = [], {"fault_stats": "", "unit_perf": "", "sys_perf": ""}
+        check_results, adcs_subs = [], {"fault_stats": "", "unit_perf": "","sys_faults": "", "sys_perf": ""}
         
         # --- 3. 姿轨控分析 ---
         # 3.1 故障统计 (1month)
@@ -1881,6 +2011,12 @@ def assess_monthly_performance(satellite_name: str, year_month: str = None) -> s
                 elif "降交点" in item: res_s = _analyze_ltdn_impl(df_item)
                 else: res_s = _analyze_propulsion_impl(df_item)
                 check_results.append({"name": item, **res_s}); adcs_subs["sys_perf"] += res_s['html']
+
+        # --- [插入位置] 3.5 系统故障统计 (1month) ---
+        logger.info("📡 [ADCS] 分析系统级故障(安全模式)...")
+        sys_res, sys_html = _analyze_system_faults_impl(satellite_name, m_start, m_end)
+        check_results.extend(sys_res)
+        adcs_subs["sys_faults"] = sys_html
 
         # --- 4. 热控分析 (1day) ---
         logger.info("🌡️ [Thermal] 分析热变形...")
