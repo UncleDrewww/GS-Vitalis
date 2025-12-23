@@ -1639,6 +1639,42 @@ def detect_gnss_fault_segments(satellite_name: str, start_time_str: str = None, 
     except Exception as e:
         return json.dumps({"error": str(e)})
 
+# 增加一个全局缓存用于知识库
+_KNOWLEDGE_CACHE = None
+
+@mcp.tool(description="[知识库] 查询卫星故障处置预案和专家经验。输入关键词（如'星敏噪声'、'安全模式'）。")
+def query_knowledge_base(query: str) -> str:
+    """
+    检索故障处置知识库。
+    """
+    global _KNOWLEDGE_CACHE
+    import yaml
+    
+    # 1. 加载知识库
+    if _KNOWLEDGE_CACHE is None:
+        kb_path = os.path.join(os.path.dirname(__file__), "doc", "knowledge.yaml")
+        if os.path.exists(kb_path):
+            with open(kb_path, 'r', encoding='utf-8') as f:
+                _KNOWLEDGE_CACHE = yaml.safe_load(f)
+        else:
+            return "错误：未找到知识库文件 doc/knowledge.yaml"
+
+    kb = _KNOWLEDGE_CACHE.get('knowledge_base', {})
+    
+    # 2. 模糊搜索
+    results = []
+    query = query.strip()
+    
+    for key, info in kb.items():
+        # 如果 key 包含 query 或者 query 包含 key
+        if query in key or key in query:
+            results.append(f"【{key}】\n现象: {info['symptom']}\n原因: {info['cause']}\n处置建议: {info['action']}\n")
+    
+    if not results:
+        return f"知识库中未找到关于'{query}'的相关条目。建议人工查阅详细手册。"
+    
+    return "\n".join(results)
+
 @mcp.tool(description="""[侦察] 检测 GNSS 通信故障时间段。
 **用途**：当用户询问 GNSS 状态时首先调用此工具。
 **返回**：JSON 格式的故障时间段列表 (segments)。
@@ -2025,7 +2061,21 @@ def assess_monthly_performance(satellite_name: str, year_month: str = None) -> s
         # 5. 汇总生成
         logger.info("📝 渲染最终整星月度报告...")
         full_body = _generate_final_report_content(check_results, adcs_subs, thermal_html)
-        return _wrap_html_report(full_body, f"{satellite_name} 卫星月度体检报告")
+        title = f"{satellite_name} 卫星月度体检报告"
+        final_msg = _wrap_html_report(full_body, title)
+        # ================= 核心修改点 =================
+        # 提取异常项，构造一段给 AI 看的文本摘要
+        anomalies = [r for r in check_results if isinstance(r, dict) and r.get('is_abnormal')]
+        
+        if anomalies:
+            summary_text = f"报告已生成。监测到 {len(anomalies)} 项异常，请立即分析：\n"
+            for i, r in enumerate(anomalies, 1):
+                summary_text += f"{i}. [{r.get('name')}] : {r.get('summary')}\n"
+            
+            summary_text += "\n请根据上述异常，调用 knowledge_base 工具获取处置建议，并给出分析结论。"
+            return str(final_msg) + "\n\n" + summary_text
+        else:
+            return str(final_msg) + "\n\n报告已生成。本月全星状态良好，无异常项，无需额外处置。"
 
     except Exception as e:
         logger.error(f"严重错误: {e}", exc_info=True)
