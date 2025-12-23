@@ -15,6 +15,17 @@ import matplotlib.pyplot as plt
 import webbrowser
 import yaml # 需要 pip install pyyaml
 from scipy import signal
+import logging
+import sys
+import time
+
+# 设置日志，确保在 Cherry Studio 中可见
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger("AOCS_FullFidelity_Eval")
 
 # 设置 Matplotlib 后端为非交互式，防止在服务器端弹出窗口报错
 plt.switch_backend('Agg')
@@ -120,6 +131,9 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
         "执行器错误": ["error_actuators"],
         "GNSS错误":  ["error_gnss"], # 用于检测故障段
         "故障置出":   ["fault_gnss_count"], # 用于统计总数
+
+        "故障计数": ["fault_exclusions"],
+        "单机故障": ["fault_exclusions"],
     }
 
     found_key = None
@@ -402,55 +416,82 @@ def _analyze_wheel_impl(data: pd.DataFrame, wheel_name: str, limit_val: float = 
     except Exception as e:
         return {"is_abnormal": True, "summary": f"{wheel_name} 出错", "html": f"<div class='error'>{wheel_name} 分析出错: {e}</div>"}
 
-def _analyze_attitude_impl(data: pd.DataFrame) -> Dict:
+# ==========================================
+# 增强版姿态分析逻辑 (支持全量统计与超差计数)
+# ==========================================
+def _analyze_attitude_monthly_impl(data: pd.DataFrame) -> Dict:
+    """
+    内部逻辑：针对月度全量数据进行姿态分析。
+    增加了超差计数逻辑。
+    """
     if data.empty or data.shape[1] < 7:
-        return {"is_abnormal": True, "summary": "姿态数据不足", "html": "<div class='error'>[姿态] 数据列数不足。</div>"}
+        return {"is_abnormal": True, "summary": "姿态数据不足", "html": "<div class='error'>数据列数不足</div>"}
+    
     try:
-        origin_data = data.values
-        LIMIT_AGL = 0.02
-        LIMIT_W = 0.003
+        # 指标阈值定义
+        LIMIT_AGL = 0.02    # 姿态角超差门限 (deg)
+        LIMIT_W = 0.003     # 姿态稳定度门限 (deg/s)
         
-        valid_agl = origin_data[:, [0, 1, 2, 3]]
-        valid_w = origin_data[:, [0, 4, 5, 6]]
-        agl_std = np.std(valid_agl[:, 1:4].astype(float), axis=0, ddof=1)
-        w_std = np.std(valid_w[:, 1:4].astype(float), axis=0, ddof=1)
+        # 1. 数据转换
+        raw_values = data.values
+        # 姿态角 [Time, Roll, Pitch, Yaw] -> index 1,2,3
+        agl_data = raw_values[:, 1:4].astype(float)
+        # 角速度 [Time, ..., Wx, Wy, Wz] -> index 4,5,6
+        w_data = raw_values[:, 4:7].astype(float)
+        
+        # 2. 核心统计计算 (全量数据)
+        # 计算 3-Sigma
+        agl_std = np.nanstd(agl_data, axis=0, ddof=1)
+        w_std = np.nanstd(w_data, axis=0, ddof=1)
         agl_3sigma = 3 * agl_std
         w_3sigma = 3 * w_std
         
+        # --- [新增] 超差统计逻辑 ---
+        # 只要任意一轴超标，即计为一次超差样本
+        agl_excess_mask = np.any(np.abs(agl_data) > LIMIT_AGL, axis=1)
+        w_excess_mask = np.any(np.abs(w_data) > LIMIT_W, axis=1)
+        
+        count_agl_excess = int(np.sum(agl_excess_mask))
+        count_w_excess = int(np.sum(w_excess_mask))
+        total_samples = len(data)
+        agl_excess_rate = (count_agl_excess / total_samples) * 100
+        w_excess_rate = (count_w_excess / total_samples) * 100
+        
+        # 3. 判定与报告生成
         axes_name = ['Roll', 'Pitch', 'Yaw']
         table_rows = ""
         has_anomaly = False
-        details = []
-
+        
+        # 姿态角行
         for i in range(3):
             val = agl_3sigma[i]
-            if val > LIMIT_AGL:
-                res_html = "<span style='color:#dc3545;'>超标</span>"
-                has_anomaly = True
-                details.append(f"{axes_name[i]}角")
-            else:
-                res_html = "<span style='color:#28a745;'>合格</span>"
-            table_rows += f"<tr><td>姿态精度</td><td>{axes_name[i]}</td><td>{val:.4f}</td><td>&le; {LIMIT_AGL}</td><td>{res_html}</td></tr>"
-
-        table_rows += "<tr style='background:#eee;'><td colspan='5' style='height:1px;'></td></tr>"
-
+            res_html = "<span style='color:#dc3545;'>超标</span>" if val > LIMIT_AGL else "<span style='color:#28a745;'>合格</span>"
+            if val > LIMIT_AGL: has_anomaly = True
+            table_rows += f"<tr><td>姿态精度(3σ)</td><td>{axes_name[i]}</td><td>{val:.5f}</td><td>&le; {LIMIT_AGL}</td><td>{res_html}</td></tr>"
+        
+        # 角速度行
         for i in range(3):
             val = w_3sigma[i]
-            if val > LIMIT_W:
-                res_html = "<span style='color:#dc3545;'>超标</span>"
-                has_anomaly = True
-                details.append(f"{axes_name[i]}速")
-            else:
-                res_html = "<span style='color:#28a745;'>合格</span>"
-            table_rows += f"<tr><td>姿态稳定度</td><td>{axes_name[i]}</td><td>{val:.5f}</td><td>&le; {LIMIT_W}</td><td>{res_html}</td></tr>"
+            res_html = "<span style='color:#dc3545;'>超标</span>" if val > LIMIT_W else "<span style='color:#28a745;'>合格</span>"
+            if val > LIMIT_W: has_anomaly = True
+            table_rows += f"<tr><td>姿态稳定度(3σ)</td><td>{axes_name[i]}</td><td>{val:.6f}</td><td>&le; {LIMIT_W}</td><td>{res_html}</td></tr>"
 
-        # 绘图
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
-        x_axis = range(len(valid_agl))
-        ax1.plot(x_axis, valid_agl[:, 1:4])
-        ax1.set_title('姿态角')
-        ax2.plot(x_axis, valid_w[:, 1:4])
-        ax2.set_title('角速度')
+        # 4. 绘图 (全月全量绘图，使用 rasterized=True 优化性能)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+        x_axis = range(total_samples)
+        
+        # 姿态角曲线
+        ax1.plot(x_axis, agl_data, linewidth=0.5, alpha=0.8, rasterized=True)
+        ax1.axhline(y=LIMIT_AGL, color='r', linestyle='--', alpha=0.3)
+        ax1.axhline(y=-LIMIT_AGL, color='r', linestyle='--', alpha=0.3)
+        ax1.set_title(f'全月姿态角演变 (超差样本数: {count_agl_excess})')
+        
+        # 角速度曲线
+        ax2.plot(x_axis, w_data, linewidth=0.5, alpha=0.8, rasterized=True)
+        ax2.axhline(y=LIMIT_W, color='r', linestyle='--', alpha=0.3)
+        ax2.axhline(y=-LIMIT_W, color='r', linestyle='--', alpha=0.3)
+        ax2.set_title(f'全月角速度演变 (超差样本数: {count_w_excess})')
+        
         plt.tight_layout()
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=120)
@@ -458,25 +499,36 @@ def _analyze_attitude_impl(data: pd.DataFrame) -> Dict:
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
         plt.close(fig)
 
+        # 5. HTML 结构
         summary_color = "#dc3545" if has_anomaly else "#28a745"
-        summary_text = "存在指标超差" if has_anomaly else "姿态控制指标全部合格"
-
         html = f"""
         <div class="section">
-            <h2>姿态控制性能分析</h2>
-            <div style="padding:12px; margin-bottom:20px; border-left:5px solid {summary_color}; background:{summary_color}1a;">
-                <strong style="color:{summary_color}; font-size:14px;">诊断结论：{summary_text}</strong>
+            <h2>姿态控制性能月度统计 (全量高保真)</h2>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <div style="flex:1; padding:15px; background:#f8f9fa; border-radius:8px; border-top:4px solid {summary_color};">
+                    <div style="font-size:12px; color:#666;">姿态角超差总数</div>
+                    <div style="font-size:24px; font-weight:bold; color:{summary_color};">{count_agl_excess} <small style="font-size:12px; font-weight:normal;">({agl_excess_rate:.4f}%)</small></div>
+                </div>
+                <div style="flex:1; padding:15px; background:#f8f9fa; border-radius:8px; border-top:4px solid {summary_color};">
+                    <div style="font-size:12px; color:#666;">角速度超差总数</div>
+                    <div style="font-size:24px; font-weight:bold; color:{summary_color};">{count_w_excess} <small style="font-size:12px; font-weight:normal;">({w_excess_rate:.4f}%)</small></div>
+                </div>
             </div>
             <table>
-                <thead><tr style="background:#f1f3f5;"><th>项目</th><th>轴</th><th>实测(3σ)</th><th>指标</th><th>判定</th></tr></thead>
+                <thead><tr style="background:#f1f3f5;"><th>分析项目</th><th>轴</th><th>实测(3σ)</th><th>指标门限</th><th>判定</th></tr></thead>
                 <tbody>{table_rows}</tbody>
             </table>
-            <div style="text-align:center;"><img src="data:image/png;base64,{img_base64}" style="max-width:100%;"></div>
+            <div style="text-align:center;"><img src="data:image/png;base64,{img_base64}" style="max-width:100%; border:1px solid #ddd;"></div>
         </div>
         """
-        return {"is_abnormal": has_anomaly, "summary": "姿态: " + (",".join(details) + "超标" if has_anomaly else "合格"), "html": html}
+        return {
+            "is_abnormal": has_anomaly or (count_agl_excess > 0), 
+            "summary": f"姿态: 超差{count_agl_excess}点", 
+            "html": html
+        }
     except Exception as e:
-        return {"is_abnormal": True, "summary": "姿态分析异常", "html": f"<div class='error'>{e}</div>"}
+        logger.error(f"姿态月度分析计算失败: {e}")
+        return {"is_abnormal": True, "summary": "计算出错", "html": f"<div>分析异常: {e}</div>"}
 
 def _analyze_device_errors_impl(sat_code: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
     """
@@ -558,6 +610,105 @@ def _analyze_device_errors_impl(sat_code: str, start_str: str, end_str: str) -> 
     """
     
     return individual_results, full_html_table
+
+def _analyze_all_unit_faults_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
+    """
+    [专业版] 统计单机故障置出计数。
+    去掉了 HTML 报告中的遥测代号列，仅展示单机名称与故障增量。
+    """
+    global _SAT_CONFIG_CACHE
+    if _SAT_CONFIG_CACHE is None:
+        _get_codes_impl(satellite_name, "任意")
+    
+    # --- 1. 卫星配置定位 ---
+    target_sat_config = None
+    config_dict = _SAT_CONFIG_CACHE.get('satellites', {})
+    query = satellite_name.upper().strip()
+
+    for sat_id, sat_data in config_dict.items():
+        if (sat_id.upper() == query or 
+            sat_data.get('name', '').upper() == query or 
+            query in [a.upper() for a in sat_data.get('aliases', [])]):
+            target_sat_config = sat_data
+            break
+
+    if not target_sat_config:
+        logger.error(f"❌ 故障统计失败: 无法识别卫星 '{satellite_name}'")
+        return [], ""
+
+    # --- 2. 映射解析 ---
+    entry = target_sat_config.get('telemetry', {}).get('fault_exclusions', {})
+    if not entry:
+        return [], ""
+
+    codes_str = entry.get('code', '')
+    names_str = entry.get('desc', '')
+    codes = [c.strip() for c in codes_str.split(',') if c.strip()]
+    names = [n.strip() for n in names_str.split(',') if n.strip()]
+    fault_map = dict(zip(codes, names))
+
+    # --- 3. 数据处理 ---
+    db_table = target_sat_config.get('db_table')
+    df = _get_data_impl(db_table, codes_str, start_str, end_str)
+    
+    if df.empty:
+        return [], ""
+
+    individual_results = []
+    table_rows = ""
+    has_any_fault = False
+
+    for code in codes:
+        unit_name = fault_map.get(code, "未知单机")
+        inc = 0
+        if code in df.columns:
+            series = pd.to_numeric(df[code], errors='coerce').dropna()
+            if not series.empty:
+                vals = series.astype(int) % 256
+                diffs = vals.diff().fillna(0)
+                adjusted = np.where(diffs < 0, diffs + 256, diffs)
+                inc = int(np.sum(adjusted))
+                if inc > 0: has_any_fault = True
+
+        individual_results.append({
+            "name": f"{unit_name}故障",
+            "is_abnormal": inc > 0,
+            "summary": f"+{inc}" if inc > 0 else "正常"
+        })
+
+        # 构造 HTML 行：仅保留 单机名称 和 故障增量
+        row_style = "background:#fff5f5; color:#dc3545; font-weight:bold;" if inc > 0 else ""
+        table_rows += f"""
+        <tr style="{row_style}">
+            <td style="padding:10px; border:1px solid #eee;">{unit_name}</td>
+            <td style="padding:10px; border:1px solid #eee;">{inc}</td>
+        </tr>
+        """
+
+    # --- 4. 构造 HTML 片段 ---
+    summary_text = "发现单机故障置出触发" if has_any_fault else "单机运行状态良好"
+    color = "#dc3545" if has_any_fault else "#28a745"
+
+    html = f"""
+    <div class="section">
+        <h2>全星单机故障置出统计 (全月)</h2>
+        <div style="padding:12px; border-left:5px solid {color}; background:{color}1a; margin-bottom:20px; font-size:14px; color:#333;">
+            <strong>统计结论：</strong> {summary_text}
+        </div>
+        <table style="width:100%; text-align:center; border-collapse:collapse; font-size:13px; border:1px solid #eee;">
+            <thead style="background:#f8f9fa;">
+                <tr>
+                    <th style="padding:10px; border:1px solid #eee;">单机名称</th>
+                    <th style="padding:10px; border:1px solid #eee;">故障增量 (次数)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_rows}
+            </tbody>
+        </table>
+    </div>
+    """
+    return individual_results, html
 
 def _analyze_orbit_impl(data: pd.DataFrame) -> Dict:
     """
@@ -1157,23 +1308,6 @@ def calculate_star_sensor_noise(satellite_name: str = None, data_json: str = Non
     except Exception as e:
         return f"运行错误: {e}"
 
-@mcp.tool(description="[单项] 姿态控制精度分析。")
-def calculate_attitude_control_accuracy(satellite_name: str = None, data_json: str = None, start_time_str: str = None, end_time_str: str = None) -> str:
-    try:
-        df = pd.DataFrame()
-        if data_json and len(data_json) > 10:
-            try: df = pd.read_json(io.StringIO(data_json), orient='split')
-            except: pass
-        elif satellite_name:
-            sat_code, tm_code = _get_codes_impl(satellite_name, "姿态")
-            if sat_code: df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-        
-        if df.empty: return "错误: 无数据。"
-        result_dict = _analyze_attitude_impl(df)
-        return _wrap_html_report(result_dict['html'], "姿态控制精度报告")
-    except Exception as e:
-        return f"运行错误: {e}"
-
 @mcp.tool(description="[单项] 星敏热变形分析工具。")
 def analyze_thermal_deformation(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
     import json
@@ -1543,336 +1677,92 @@ def investigate_telemetry_trends(satellite_name: str, start_time_str: str, end_t
 # 第三层：聚合工具 (Composite Tool)
 # ==============================================================================
 
-@mcp.tool(description="""[一键评估] 卫星状态全面评估。
-自动执行：星敏噪声、姿态精度、飞轮性能、单机通信错误、热变形等所有检查项。
-报告顶部包含异常统计仪表盘。
-""")
-@mcp.tool(description="""[一键评估] 卫星状态全面评估。
-自动执行：星敏噪声、姿态精度、飞轮性能、单机通信错误、热变形等所有检查项。
-报告顶部包含异常统计仪表盘。
-""")
-@mcp.tool(description="""[一键评估] 卫星状态全面评估。
-自动执行：星敏噪声、姿态精度、飞轮性能、单机通信错误、热变形等所有检查项。
-报告顶部包含异常统计仪表盘，正文分为单机性能、系统性能、热变形分析三部分。
-""")
-def assess_satellite_status(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
-    """
-    综合评估入口：串行调用各个底层 _impl 函数，按章节拼装总报告。
-    """
-    check_results = [] # 用于仪表盘统计
-    
-    # 定义三个部分的 HTML 缓冲区
-    html_part1_components = ""  # 第一部分：单机 (星敏/陀螺/飞轮/通信)
-    html_part2_system = ""      # 第二部分：系统 (姿态)
-    html_part3_thermal = ""     # 第三部分：热变形
-
-    base_sat_code, _ = _get_codes_impl(satellite_name, "任意")
-    if not base_sat_code:
-        return f"错误：未找到卫星 {satellite_name} 的定义。"
-
-    # ==========================================
-    # 第一部分：单机性能评估
-    # ==========================================
-    
-    # 1. 星敏分析
-    star_analysis_end_time = end_time_str
-    if start_time_str:
-        try:
-            s_dt = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
-            star_analysis_end_time = (s_dt + timedelta(minutes=3)).strftime('%Y-%m-%d %H:%M:%S')
-        except: pass
-
-    for label in ["星敏A", "星敏B"]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, label)
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, start_time_str, star_analysis_end_time)
-            res = _analyze_star_sensor_impl(df, sensor_name=label)
-            check_results.append({"name": label, **res})
-            if res.get('html'): html_part1_components += res['html'] + "<br>"
-        else:
-            check_results.append({"name": label, "is_abnormal": False, "summary": "未配置", "html": ""})
-
-    # 2. 陀螺分析
-    for cfg in [{"name": "陀螺A", "limit": 0.0004}, {"name": "陀螺B", "limit": 0.0020}]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, cfg["name"])
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-            res = _analyze_gyro_impl(df, cfg["name"], cfg["limit"])
-            check_results.append({"name": cfg["name"], **res})
-            if res.get('html'): html_part1_components += res['html'] + "<br>"
-
-    # 3. 飞轮分析
-    for fw in ["飞轮A", "飞轮B", "飞轮C", "飞轮D"]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, fw)
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-            res = _analyze_wheel_impl(df, fw, 0.5)
-            check_results.append({"name": fw, **res})
-            if res.get('html'): html_part1_components += res['html'] + "<br>"
-
-    # 4. 单机通信错误统计 (归入第一部分)
-    dev_results_list, dev_html_table = _analyze_device_errors_impl(base_sat_code, start_time_str, end_time_str)
-    check_results.extend(dev_results_list) # 计入仪表盘总数
-    html_part1_components += dev_html_table + "<br>" # 表格放入第一部分
-
-    # ==========================================
-    # 第二部分：系统性能评估
-    # ==========================================
-
-    # 5. 姿态分析
-    sat_code, tm_code = _get_codes_impl(satellite_name, "姿态")
-    if sat_code and tm_code:
-        df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-        res = _analyze_attitude_impl(df)
-        check_results.append({"name": "姿态控制", **res})
-        if res.get('html'): html_part2_system += res['html']
-
-    # 6. 【新增】轨道高度分析
-    sat_code, tm_code = _get_codes_impl(satellite_name, "平根半长轴")
-    if sat_code and tm_code:
-        df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-        res = _analyze_orbit_impl(df)
-        check_results.append({"name": "轨道维持", **res})
-        if res.get('html'): html_part2_system += res['html']
-    else:
-        check_results.append({"name": "轨道维持", "is_abnormal": False, "summary": "未配置", "html": ""})
-
-    # 7. 【新增】降交点地方时 (LTDN) 分析
-    sat_code, tm_code = _get_codes_impl(satellite_name, "降交点")
-    if sat_code and tm_code:
-        df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-        res = _analyze_ltdn_impl(df)
-        check_results.append({"name": "LTDN维持", **res})
-        if res.get('html'): html_part2_system += res['html']
-    else:
-        check_results.append({"name": "LTDN维持", "is_abnormal": False, "summary": "未配置", "html": ""})
-    # ==========================================
-    # 第三部分：结构热变形分析
-    # ==========================================
-
-    # ================= 添加在这里 =================
-    # 7.5 电推寿命分析 【新增】
-    sat_code, tm_code = _get_codes_impl(satellite_name, "电推")
-    if sat_code and tm_code:
-        df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
-        res = _analyze_propulsion_impl(df)
-        check_results.append({"name": "电推系统", **res}) # 加入仪表盘统计
-        if res.get('html'): html_part2_system += res['html'] # 加入正文
-    else:
-        # 如果不是所有卫星都有电推，可以根据需要决定是否显示“未配置”
-        # check_results.append({"name": "电推系统", "is_abnormal": False, "summary": "未配置", "html": ""})
-        pass
-    # ============================================
-
-    # 8. 热变形
-    _, html_thermal = _analyze_thermal_impl(base_sat_code, start_time_str, end_time_str)
-    check_results.append({"name": "结构热变形", "is_abnormal": False, "summary": "已分析", "html": html_thermal})
-    html_part3_thermal += html_thermal
-
-    # ==========================================
-    # 生成仪表盘 (Dashboard)
-    # ==========================================
-    total_checks = len(check_results)
-    anomalies = [r for r in check_results if r.get('is_abnormal')]
-    count_abnormal = len(anomalies)
-    
-    if count_abnormal > 0:
-        anomaly_items = ""
-        for item in anomalies:
-            anomaly_items += f"""
-            <li style="margin-bottom: 5px; padding: 8px; background: #fff5f5; border-left: 3px solid #e53e3e; border-radius: 4px;">
-                <span style="font-weight:bold; color: #c53030;">[{item['name']}]</span> 
-                <span style="color: #4a5568;">{item['summary']}</span>
-            </li>
-            """
-        anomaly_list_html = f"<ul style='list-style: none; padding: 0; margin-top: 15px;'>{anomaly_items}</ul>"
-        status_card_color = "#fff5f5"
-        status_icon = "⚠️"
-        status_text_color = "#c53030"
-    else:
-        anomaly_list_html = "<div style='margin-top:15px; padding:10px; background:#f0fff4; color:#2f855a; text-align:center; border-radius:4px;'>🎉 所有检测项均符合指标要求</div>"
-        status_card_color = "#f0fff4"
-        status_icon = "✅"
-        status_text_color = "#2f855a"
-
-    dashboard_html = f"""
-    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; font-family: sans-serif;">
-        <h2 style="margin-top:0; color: #2d3748; border-bottom: 2px solid #edf2f7; padding-bottom: 15px;">
-            🩺 卫星健康体检摘要
-        </h2>
-        <div style="display: flex; gap: 20px; margin-top: 20px;">
-            <div style="flex: 1; background: #f7fafc; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #cbd5e0;">
-                <div style="font-size: 42px; font-weight: bold; color: #4a5568; line-height: 1;">{total_checks}</div>
-                <div style="color: #718096; font-weight: bold; margin-top: 5px; font-size: 14px;">已执行测试项</div>
-                <div style="font-size: 24px; margin-top: 5px;">📋</div>
-            </div>
-            <div style="flex: 1; background: {status_card_color}; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid {status_text_color}40;">
-                <div style="font-size: 42px; font-weight: bold; color: {status_text_color}; line-height: 1;">{count_abnormal}</div>
-                <div style="color: {status_text_color}; font-weight: bold; margin-top: 5px; font-size: 14px;">异常项数量</div>
-                <div style="font-size: 24px; margin-top: 5px;">{status_icon}</div>
-            </div>
-        </div>
-        <div style="margin-top: 20px;">
-            <div style="font-size: 14px; color: #718096; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
-                诊断详情 ({'存在风险' if count_abnormal > 0 else '正常'})
-            </div>
-            {anomaly_list_html}
-        </div>
-    </div>
-    """
-
-    # ==========================================
-    # 拼装最终报告
-    # ==========================================
-    
-    # 辅助函数：生成带样式的分节标题
-    def make_header(title):
-        return f"""
-        <div style="margin-top: 50px; margin-bottom: 20px; border-left: 6px solid #3498db; padding-left: 15px;">
-            <h1 style="margin: 0; color: #2c3e50; font-size: 24px;">{title}</h1>
-        </div>
-        """
-
-    full_body = dashboard_html
-    full_body += "<hr style='border: 0; border-top: 1px solid #eee; margin: 30px 0;'>"
-    
-    # 第一部分：单机
-    if html_part1_components:
-        full_body += make_header("第一部分：单机性能评估")
-        full_body += html_part1_components
-        
-    # 第二部分：系统
-    if html_part2_system:
-        full_body += make_header("第二部分：系统性能评估")
-        full_body += html_part2_system
-        
-    # 第三部分：热变形
-    if html_part3_thermal:
-        full_body += make_header("第三部分：结构热变形分析")
-        full_body += html_part3_thermal
-
-    return _wrap_html_report(full_body, f"{satellite_name} 状态全检报告")
-
-@mcp.tool(description="""[月度评估] 自动化执行在轨卫星月度性能体检。
-1. 性能项(星敏/陀螺/飞轮): 采样每月15日0点的3分钟高频数据。
-2. 热变形: 采样每月15日开始的24小时数据，分析轨道周期性漂移。
-3. 系统项(姿态/轨道/通信/电推): 统计全月完整数据。
+@mcp.tool(description="""[月度评估-高保真] 严格按多尺度时间窗进行评估：
+1. 星敏(3min)
+2. 陀螺/飞轮/姿态/热变形(1day)
+3. 轨道/LTDN/电推/通信错误(1month)
+全部采用全量原始数据，不降采样。
 """)
 def assess_monthly_performance(satellite_name: str, year_month: str = None) -> str:
-    """
-    year_month 格式: '2023-10'。如果不传，默认评估当前月。
-    """
-    # --- 1. 时间窗口计算 ---
+    logger.info(f"🚀 [月度评估] 卫星: {satellite_name}")
+
+    # --- 1. 时间窗口准备 ---
     if year_month:
-        try:
-            target_dt = datetime.strptime(year_month, '%Y-%m')
-        except:
-            return "错误：月份格式应为 YYYY-MM，例如 2023-10"
+        target_dt = datetime.strptime(year_month, '%Y-%m')
     else:
-        target_dt = datetime.now().replace(day=1)
+        target_dt = (datetime.now().replace(day=1) - timedelta(days=1)).replace(day=1)
 
-    # A. 全月窗口 (用于：姿态控精、通信错误、轨道高度、LTDN、电推)
-    month_start_str = target_dt.strftime('%Y-%m-01 00:00:00')
-    if target_dt.month == 12:
-        next_month = target_dt.replace(year=target_dt.year + 1, month=1)
-    else:
-        next_month = target_dt.replace(month=target_dt.month + 1)
-    month_end_str = (next_month - timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
+    m_start = target_dt.strftime('%Y-%m-01 00:00:00')
+    if target_dt.month == 12: n_m = target_dt.replace(year=target_dt.year + 1, month=1)
+    else: n_m = target_dt.replace(month=target_dt.month + 1)
+    m_end = (n_m - timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
 
-    # B. 3分钟采样窗口 (用于：星敏噪声、陀螺噪声、飞轮精度)
-    sample_3m_start = target_dt.replace(day=15, hour=0, minute=0, second=0)
-    sample_3m_end = sample_3m_start + timedelta(minutes=3)
-    s3m_start_str = sample_3m_start.strftime('%Y-%m-%d %H:%M:%S')
-    s3m_end_str = sample_3m_end.strftime('%Y-%m-%d %H:%M:%S')
-
-    # C. 24小时热变形窗口 (用于：星敏光轴夹角热稳定性)
-    sample_1d_start = sample_3m_start # 同样从15号0点开始
-    sample_1d_end = sample_1d_start + timedelta(days=1)
-    s1d_start_str = sample_1d_start.strftime('%Y-%m-%d %H:%M:%S')
-    s1d_end_str = sample_1d_end.strftime('%Y-%m-%d %H:%M:%S')
-
-    print(f">>> 启动 {satellite_name} 月度评估报告生成")
-    print(f">>> [性能采样] {s3m_start_str} (3min)")
-    print(f">>> [热变形窗] {s1d_start_str} (24h)")
-    print(f">>> [全月统计] {month_start_str} 至 {month_end_str}")
+    d_start_dt = target_dt.replace(day=15, hour=0, minute=0, second=0)
+    d_start, d_end = d_start_dt.strftime('%Y-%m-%d %H:%M:%S'), (d_start_dt + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
+    s3_start, s3_end = d_start, (d_start_dt + timedelta(minutes=3)).strftime('%Y-%m-%d %H:%M:%S')
 
     base_sat_code, _ = _get_codes_impl(satellite_name, "任意")
-    if not base_sat_code: return f"错误：未找到卫星 {satellite_name}"
-
     check_results = []
-    html_part1_components = "" 
-    html_part2_system = ""      
-    html_part3_thermal = ""     
+    h_part1, h_part2, h_part3 = "", "", ""
 
-    # --- 2. 执行分析 (分窗口调用) ---
-
-    # [3分钟采样] 星敏、陀螺、飞轮
+    # --- 2. 评估过程 ---
+    
+    # [3min] 星敏
+    logger.info("分析星敏噪声 (3min)...")
     for label in ["星敏A", "星敏B"]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, label)
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, s3m_start_str, s3m_end_str)
-            res = _analyze_star_sensor_impl(df, sensor_name=label)
-            check_results.append({"name": label, **res})
-            html_part1_components += res['html']
+        _, tm = _get_codes_impl(satellite_name, label)
+        df = _get_data_impl(base_sat_code, tm, s3_start, s3_end)
+        res = _analyze_star_sensor_impl(df, label)
+        check_results.append({"name": label, **res}); h_part1 += res['html']
 
-    for cfg in [{"name": "陀螺A", "limit": 0.0004}, {"name": "陀螺B", "limit": 0.0020}]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, cfg["name"])
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, s3m_start_str, s3m_end_str)
-            res = _analyze_gyro_impl(df, cfg["name"], cfg["limit"])
-            check_results.append({"name": cfg["name"], **res})
-            html_part1_components += res['html']
+    # [1day] 陀螺 & 飞轮 & 热变形
+    logger.info("分析陀螺/飞轮/热变形 (1day调试模式)...")
+    for cfg in [{"n": "陀螺A", "l": 0.0004}, {"n": "陀螺B", "l": 0.0020}]:
+        _, tm = _get_codes_impl(satellite_name, cfg["n"])
+        df = _get_data_impl(base_sat_code, tm, d_start, d_end)
+        res = _analyze_gyro_impl(df, cfg["n"], cfg["l"])
+        check_results.append({"name": cfg["n"], **res}); h_part1 += res['html']
 
     for fw in ["飞轮A", "飞轮B", "飞轮C", "飞轮D"]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, fw)
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, s3m_start_str, s3m_end_str)
-            res = _analyze_wheel_impl(df, fw, 0.5)
-            check_results.append({"name": fw, **res})
-            html_part1_components += res['html']
+        _, tm = _get_codes_impl(satellite_name, fw)
+        df = _get_data_impl(base_sat_code, tm, d_start, d_end)
+        res = _analyze_wheel_impl(df, fw, 0.5)
+        check_results.append({"name": fw, **res}); h_part1 += res['html']
 
-    # [全月统计] 通信错误
-    dev_results, dev_html = _analyze_device_errors_impl(base_sat_code, month_start_str, month_end_str)
-    check_results.extend(dev_results)
-    html_part1_components += dev_html
-
-    # [全月统计] 姿态控制性能 (重点：这里改用全月窗口)
-    sat_code, tm_code = _get_codes_impl(satellite_name, "姿态")
-    if sat_code and tm_code:
-        df = _get_data_impl(sat_code, tm_code, month_start_str, month_end_str)
-        res = _analyze_attitude_impl(df)
-        check_results.append({"name": "月度姿态控制", **res})
-        html_part2_system += res['html']
-
-    # [全月统计] 轨道与电推
-    for item in ["平根半长轴", "降交点"]:
-        sat_code, tm_code = _get_codes_impl(satellite_name, item)
-        if sat_code and tm_code:
-            df = _get_data_impl(sat_code, tm_code, month_start_str, month_end_str)
-            if "半长轴" in item: res = _analyze_orbit_impl(df)
-            else: res = _analyze_ltdn_impl(df)
-            check_results.append({"name": f"月度{item}", **res})
-            html_part2_system += res['html']
-
-    sat_code, tm_code = _get_codes_impl(satellite_name, "电推")
-    if sat_code and tm_code:
-        df = _get_data_impl(sat_code, tm_code, month_start_str, month_end_str)
-        res = _analyze_propulsion_impl(df)
-        check_results.append({"name": "月度电推系统", **res})
-        html_part2_system += res['html']
-
-    # [24小时采样] 热变形分析
-    _, html_thermal = _analyze_thermal_impl(base_sat_code, s1d_start_str, s1d_end_str)
-    check_results.append({"name": "结构热稳定性(24h)", "is_abnormal": False, "summary": "已分析", "html": html_thermal})
-    html_part3_thermal = html_thermal
-
-    # --- 3. 生成最终报告 (调用共用的 HTML 拼装逻辑) ---
-    title = f"{satellite_name} {target_dt.strftime('%Y年%m月')} 在轨运行月度分析报告"
+    # [1month] 通信错误 & [新增] 故障置出计数
+    logger.info("分析全月单机通信与故障计数...")
+    c_res, c_html = _analyze_device_errors_impl(base_sat_code, m_start, m_end)
+    check_results.extend(c_res); h_part1 += c_html
     
-    # 这里的 _generate_final_report_content 是一个建议抽离的函数，见下文
-    full_content = _generate_final_report_content(check_results, html_part1_components, html_part2_system, html_part3_thermal)
-    
-    return _wrap_html_report(full_content, title)
+    f_res, f_html = _analyze_all_unit_faults_impl(satellite_name, m_start, m_end)
+    check_results.extend(f_res); h_part1 += f_html
+
+    # [1day] 姿态评估 (按要求临时改为 1 天以方便调试)
+    logger.info("分析姿态控制精度 (1day调试模式)...")
+    _, tm = _get_codes_impl(satellite_name, "姿态")
+    df_att = _get_data_impl(base_sat_code, tm, d_start, d_end)
+    res_att = _analyze_attitude_monthly_impl(df_att)
+    check_results.append({"name": "月度姿态控制", **res_att}); h_part2 += res_att['html']
+
+    # [1month] 轨道 & 电推
+    logger.info("分析轨道与电推趋势...")
+    for item in ["平根半长轴", "降交点", "电推"]:
+        _, tm = _get_codes_impl(satellite_name, item)
+        df = _get_data_impl(base_sat_code, tm, m_start, m_end)
+        if "半长轴" in item: res = _analyze_orbit_impl(df)
+        elif "降交点" in item: res = _analyze_ltdn_impl(df)
+        else: res = _analyze_propulsion_impl(df)
+        check_results.append({"name": item, **res}); h_part2 += res['html']
+
+    # [1day] 热变形
+    _, h_thermal = _analyze_thermal_impl(base_sat_code, d_start, d_end)
+    check_results.append({"name": "结构热稳定性", "is_abnormal": False, "summary": "已评估", "html": h_thermal})
+    h_part3 = h_thermal
+
+    # --- 3. 报告汇总 ---
+    title = f"{satellite_name} {target_dt.strftime('%Y-%m')} 运行月报"
+    full_html = _generate_final_report_content(check_results, h_part1, h_part2, h_part3)
+    return _wrap_html_report(full_html, title)
 
 if __name__ == "__main__":
     mcp.run(transport="sse")

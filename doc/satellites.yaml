@@ -86,7 +86,11 @@ satellites:
       latitude:
         code: "TMKP222"
         desc: "卫星纬度"
-
+        
+# --- 故障置出计数统计 (Fault Exclusion Counts) ---
+      fault_exclusions:
+        code: "TMKA726,TMKA727,TMKA728,TMKA729,TMKA730,TMKA731,TMKA732,TMKA733,TMKA734,TMKA735,TMKA736,TMKA737,TMKA738,TMKA739,TMKA740,TMKA741"
+        desc: "陀螺A,陀螺B,磁强计A,磁强计B,星敏A,星敏B,飞轮A,飞轮B,飞轮C,飞轮D,GNSS,磁棒A,磁棒B,磁棒C,太敏A,太敏B"
   # ----------------------------------------------------------------------------
   # 卫星标识: XW04 (示例卫星)
   # ----------------------------------------------------------------------------
