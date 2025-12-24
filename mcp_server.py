@@ -19,6 +19,15 @@ import logging
 import sys
 import time
 
+# 全局缓存，用于在“分析阶段”和“生成阶段”之间传递数据
+_REPORT_CONTEXT = {
+    "satellite_name": "",
+    "check_results": [],
+    "adcs_subs": {},
+    "thermal_html": "",
+    "timestamp": None
+}
+
 # 设置日志，确保在 Cherry Studio 中可见
 logging.basicConfig(
     level=logging.INFO,
@@ -1410,52 +1419,34 @@ def _generate_satellite_health_viz(check_results: List[Dict]) -> str:
     """
     return viz_html
 
-def _generate_final_report_content(check_results: List[Dict], adcs_subsections: Dict, thermal_html: str) -> str:
+def _generate_final_report_content(check_results: List[Dict], adcs_subsections: Dict, thermal_html: str, ai_insight_html: str = "") -> str:
     """
     [整星体检完整版] 生成标准化月度体检报告内容。
-    集成：健康可视化图 + 异常看板 + 分系统详情 + 预测模块。
+    新增参数 ai_insight_html: AI 分析卡片的 HTML 代码，默认空字符串。
     """
-    # --- 1. 数据安全校验 ---
-    # 确保输入数据非空，防止拼接时报错
+    # --- 1. 数据校验 ---
     thermal_html = thermal_html or ""
     for k in adcs_subsections:
         if adcs_subsections[k] is None: adcs_subsections[k] = ""
     
-    # 过滤无效结果
     safe_results = [r for r in check_results if isinstance(r, dict) and 'name' in r]
-    
-    # 统计数据
     total_checks = len(safe_results)
     anomalies = [r for r in safe_results if r.get('is_abnormal')]
     count_abnormal = len(anomalies)
 
-    # --- 2. 生成第一部分：重要异常展示 (Dashboard) ---
-    
-    # 2.1 调用卫星可视化生成函数 (需确保 _generate_satellite_health_viz 已定义)
+    # --- 2. 生成 Part 1: 重要异常展示 ---
     satellite_viz_html = _generate_satellite_health_viz(safe_results)
 
-    # 2.2 生成异常文字列表
     status_color = "#e53e3e" if count_abnormal > 0 else "#2f855a"
     if count_abnormal > 0:
         items = "".join([f"<li style='margin-bottom:6px;'><b>[{r.get('name','未知')}]</b> {r.get('summary','异常')}</li>" for r in anomalies])
-        anomaly_text_html = f"""
-        <div style="background:#fff5f5; padding:15px; border-radius:8px; border:1px solid #fed7d7; color:#c53030;">
-            <ul style="margin:0; padding-left:20px;">{items}</ul>
-        </div>
-        """
+        anomaly_text_html = f"<div style='background:#fff5f5; padding:15px; border-radius:8px; border:1px solid #fed7d7; color:#c53030;'><ul style='margin:0; padding-left:20px;'>{items}</ul></div>"
     else:
-        anomaly_text_html = """
-        <div style="background:#f0fff4; padding:15px; border-radius:8px; border:1px solid #c6f6d5; color:#2f855a; text-align:center;">
-            ✅ 本月全星关键指标均在门限范围内，未发现重大异常。
-        </div>
-        """
+        anomaly_text_html = "<div style='background:#f0fff4; padding:15px; border-radius:8px; border:1px solid #c6f6d5; color:#2f855a; text-align:center;'>✅ 本月全星关键指标均在门限范围内，未发现重大异常。</div>"
 
-    # 2.3 组装 Part 1
     part1_dashboard = f"""
-    <div style="background:white; padding:30px; border-radius:15px; box-shadow:0 4px 20px rgba(0,0,0,0.08); margin-bottom:50px;">
+    <div style="background:white; padding:30px; border-radius:15px; box-shadow:0 4px 20px rgba(0,0,0,0.08); margin-bottom:40px;">
         <h2 style="margin-top:0; color:#1a202c; border-bottom:2px solid #edf2f7; padding-bottom:15px;">一、 重要异常展示</h2>
-        
-        <!-- 顶部数字统计 -->
         <div style="display: flex; gap: 20px; margin-bottom: 30px;">
             <div style="flex: 1; text-align: center; border-right: 1px solid #eee;">
                 <div style="font-size: 32px; font-weight: bold; color: #4a5568;">{total_checks}</div>
@@ -1466,11 +1457,7 @@ def _generate_final_report_content(check_results: List[Dict], adcs_subsections: 
                 <div style="font-size: 12px; color: #a0aec0; text-transform: uppercase;">异常/预警项</div>
             </div>
         </div>
-
-        <!-- 核心：卫星健康可视化图 -->
         {satellite_viz_html}
-
-        <!-- 底部：异常文字详情 -->
         <div style="margin-top:25px;">
             <h4 style="margin-bottom:10px; color:#4a5568;">异常/预警项列表：</h4>
             {anomaly_text_html}
@@ -1478,37 +1465,18 @@ def _generate_final_report_content(check_results: List[Dict], adcs_subsections: 
     </div>
     """
 
-    # --- 3. 生成第二部分：所有指标评估结果 (Detailed Results) ---
-    
-    # 辅助函数：生成标准化的分系统容器
+    # --- 3. 生成 Part 2: 分系统详情 ---
     def make_subsystem_box(title, content, is_empty=False):
         tag = " <small style='color:#999; font-weight:normal;'>(本月未评估)</small>" if is_empty else ""
-        inner_content = content if content and content.strip() else '<div style="text-align:center; color:#ccc; padding:20px;">暂无相关数据</div>'
-        
-        return f"""
-        <div style="margin-bottom:30px; border:1px solid #edf2f7; border-radius:8px; overflow:hidden;">
-            <div style="background:#f8f9fa; padding:12px 20px; font-weight:bold; border-bottom:1px solid #edf2f7; color:#2d3748; font-size:16px;">
-                ■ {title}{tag}
-            </div>
-            <div style="padding:20px;">{inner_content}</div>
-        </div>
-        """
+        inner = content if content and content.strip() else '<div style="text-align:center; color:#ccc; padding:20px;">暂无相关数据</div>'
+        return f"<div style='margin-bottom:30px; border:1px solid #edf2f7; border-radius:8px; overflow:hidden;'><div style='background:#f8f9fa; padding:12px 20px; font-weight:bold; border-bottom:1px solid #edf2f7; color:#2d3748; font-size:16px;'>■ {title}{tag}</div><div style='padding:20px;'>{inner}</div></div>"
 
-    # 构造姿轨控内部的细分目录
     adcs_body = f"""
         <div style="margin-left:10px;">
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">1. 单机故障统计 (通信/故障置出)</h3>
-            {adcs_subsections.get('fault_stats','')}
-            
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:25px;">2. 单机性能评估</h3>
-            {adcs_subsections.get('unit_perf','')}
-            
-            <!-- 【更新】系统故障统计 -->
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:25px;">3. 系统故障统计</h3>
-            {adcs_subsections.get('sys_faults', '<p style="color:#bbb; font-style:italic;">(无相关数据)</p>')}
-            
-            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:25px;">4. 系统性能评估 (姿态/轨道/电推)</h3>
-            {adcs_subsections.get('sys_perf','')}
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">1. 单机故障统计</h3>{adcs_subsections.get('fault_stats', '')}
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:30px;">2. 单机性能评估</h3>{adcs_subsections.get('unit_perf', '')}
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:30px;">3. 系统故障统计</h3>{adcs_subsections.get('sys_faults', '<p style="color:#bbb; font-style:italic;">(无记录)</p>')}
+            <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px; margin-top:30px;">4. 系统性能评估</h3>{adcs_subsections.get('sys_perf', '')}
         </div>
     """
 
@@ -1525,119 +1493,114 @@ def _generate_final_report_content(check_results: List[Dict], adcs_subsections: 
     </div>
     """
 
-    # --- 4. 生成第三部分：指标对比和健康预测 (Predictions) ---
+    # --- 4. 生成 Part 3: 预测 ---
     part3_predictions = f"""
     <div style="margin-top: 50px; background: #fdfaf5; border: 1px solid #faead1; padding: 25px; border-radius: 12px;">
         <h2 style="margin-top:0; color:#856404;">三、 指标对比和健康预测</h2>
-        <div style="text-align:center; padding: 30px 0;">
-            <div style="font-size:40px; margin-bottom:10px;">🛠️</div>
-            <p style="color:#856404; font-size:14px;">
-                关键指标历史趋势对比及剩余寿命预测模型模块正在开发中。<br>
-                预计下个版本上线。
-            </p>
-        </div>
+        <div style="text-align:center; padding: 20px 0; color:#856404; font-size:14px;">🛠️ 关键指标历史趋势对比及寿命预测模型模块正在开发中。</div>
     </div>
     """
 
-    # --- 5. 拼接返回 ---
-    return part1_dashboard + part2_details + part3_predictions
+    # === 关键修改：拼接顺序 ===
+    # Part 1 (可视化) -> AI Insight (如果有) -> Part 2 (详情) -> Part 3 (预测)
+    return part1_dashboard + ai_insight_html + part2_details + part3_predictions
 
 
 # ==============================================================================
 # 第二层：原子工具 (Atomic Tools)
 # ==============================================================================
 
-@mcp.tool(description="查找卫星和遥测代号。")
-def get_satellite_codes(satellite_name: str, query: str) -> Any:
-    sat, tm = _get_codes_impl(satellite_name, query)
-    if sat and tm:
-        return pd.DataFrame([{"satellite_code": sat, "telemetry_code": tm}])
-    return pd.DataFrame(columns=["satellite_code", "telemetry_code"])
+# @mcp.tool(description="查找卫星和遥测代号。")
+# def get_satellite_codes(satellite_name: str, query: str) -> Any:
+#     sat, tm = _get_codes_impl(satellite_name, query)
+#     if sat and tm:
+#         return pd.DataFrame([{"satellite_code": sat, "telemetry_code": tm}])
+#     return pd.DataFrame(columns=["satellite_code", "telemetry_code"])
 
-@mcp.tool(description="获取卫星遥测数据。")
-def get_satellite_data(satellite_code: str, telemetry_code: str, start_time_str: str = None, end_time_str: str = None) -> str:
-    df = _get_data_impl(satellite_code, telemetry_code, start_time_str, end_time_str)
-    return df.to_json(orient='split', date_format='iso')
+# @mcp.tool(description="获取卫星遥测数据。")
+# def get_satellite_data(satellite_code: str, telemetry_code: str, start_time_str: str = None, end_time_str: str = None) -> str:
+#     df = _get_data_impl(satellite_code, telemetry_code, start_time_str, end_time_str)
+#     return df.to_json(orient='split', date_format='iso')
 
-@mcp.tool(description="[单项] 星敏噪声分析。")
-def calculate_star_sensor_noise(satellite_name: str = None, data_json: str = None, start_time_str: str = None, end_time_str: str = None) -> str:
-    try:
-        df = pd.DataFrame()
-        if data_json and len(data_json) > 10:
-            try: df = pd.read_json(io.StringIO(data_json), orient='split')
-            except: pass
-        elif satellite_name:
-            sat_code, tm_code = _get_codes_impl(satellite_name, "星敏")
-            if sat_code: df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
+# @mcp.tool(description="[单项] 星敏噪声分析。")
+# def calculate_star_sensor_noise(satellite_name: str = None, data_json: str = None, start_time_str: str = None, end_time_str: str = None) -> str:
+#     try:
+#         df = pd.DataFrame()
+#         if data_json and len(data_json) > 10:
+#             try: df = pd.read_json(io.StringIO(data_json), orient='split')
+#             except: pass
+#         elif satellite_name:
+#             sat_code, tm_code = _get_codes_impl(satellite_name, "星敏")
+#             if sat_code: df = _get_data_impl(sat_code, tm_code, start_time_str, end_time_str)
         
-        if df.empty: return "错误: 无数据。"
-        result_dict = _analyze_star_sensor_impl(df)
-        return _wrap_html_report(result_dict['html'], "星敏噪声分析报告")
-    except Exception as e:
-        return f"运行错误: {e}"
+#         if df.empty: return "错误: 无数据。"
+#         result_dict = _analyze_star_sensor_impl(df)
+#         return _wrap_html_report(result_dict['html'], "星敏噪声分析报告")
+#     except Exception as e:
+#         return f"运行错误: {e}"
 
-@mcp.tool(description="[单项] 星敏热变形分析工具。")
-def analyze_thermal_deformation(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
-    import json
-    sat_code, _ = _get_codes_impl(satellite_name, "热变形")
-    if not sat_code: return json.dumps({"error": f"未找到卫星 {satellite_name}"})
-    summary_dict, html_fragment = _analyze_thermal_impl(sat_code, start_time_str, end_time_str)
-    if "error" in summary_dict: return json.dumps(summary_dict)
-    _wrap_html_report(html_fragment, f"{satellite_name} 热变形分析报告")
-    return json.dumps(summary_dict, ensure_ascii=False)
+# @mcp.tool(description="[单项] 星敏热变形分析工具。")
+# def analyze_thermal_deformation(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
+#     import json
+#     sat_code, _ = _get_codes_impl(satellite_name, "热变形")
+#     if not sat_code: return json.dumps({"error": f"未找到卫星 {satellite_name}"})
+#     summary_dict, html_fragment = _analyze_thermal_impl(sat_code, start_time_str, end_time_str)
+#     if "error" in summary_dict: return json.dumps(summary_dict)
+#     _wrap_html_report(html_fragment, f"{satellite_name} 热变形分析报告")
+#     return json.dumps(summary_dict, ensure_ascii=False)
 
-@mcp.tool(description="[单项] GNSS故障置出计数统计。")
-def calculate_gnss_fault_count(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
-    import json
-    sat_code, _ = _get_codes_impl(satellite_name, "故障置出")
-    if not sat_code: return json.dumps({"error": f"未找到卫星 {satellite_name}"})
-    summary_dict, html_fragment = _analyze_fault_count_impl(sat_code, start_time_str, end_time_str)
-    if "error" in summary_dict: return json.dumps(summary_dict)
-    _wrap_html_report(html_fragment, f"{satellite_name} 故障置出统计")
-    return json.dumps(summary_dict, ensure_ascii=False)
+# @mcp.tool(description="[单项] GNSS故障置出计数统计。")
+# def calculate_gnss_fault_count(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
+#     import json
+#     sat_code, _ = _get_codes_impl(satellite_name, "故障置出")
+#     if not sat_code: return json.dumps({"error": f"未找到卫星 {satellite_name}"})
+#     summary_dict, html_fragment = _analyze_fault_count_impl(sat_code, start_time_str, end_time_str)
+#     if "error" in summary_dict: return json.dumps(summary_dict)
+#     _wrap_html_report(html_fragment, f"{satellite_name} 故障置出统计")
+#     return json.dumps(summary_dict, ensure_ascii=False)
 
-@mcp.tool(description="[侦察] 检测 GNSS 通信故障时间段。")
-def detect_gnss_fault_segments(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
-    import json
-    sat_code, err_tm_code = _get_codes_impl(satellite_name, "GNSS错误")
-    if not sat_code: return json.dumps({"error": "未找到卫星"})
+# @mcp.tool(description="[侦察] 检测 GNSS 通信故障时间段。")
+# def detect_gnss_fault_segments(satellite_name: str, start_time_str: str = None, end_time_str: str = None) -> str:
+#     import json
+#     sat_code, err_tm_code = _get_codes_impl(satellite_name, "GNSS错误")
+#     if not sat_code: return json.dumps({"error": "未找到卫星"})
     
-    df = _get_data_impl(sat_code, err_tm_code, start_time_str, end_time_str)
-    if df.empty: return json.dumps({"status": "normal", "message": "无数据", "segments": []})
+#     df = _get_data_impl(sat_code, err_tm_code, start_time_str, end_time_str)
+#     if df.empty: return json.dumps({"status": "normal", "message": "无数据", "segments": []})
     
-    try:
-        raw_diff = pd.to_numeric(df.iloc[:, 1], errors='coerce').diff().fillna(0)
-        real_diff = np.where(raw_diff < 0, raw_diff + 256, raw_diff)
-        error_indices = df[real_diff > 0].index.tolist()
+#     try:
+#         raw_diff = pd.to_numeric(df.iloc[:, 1], errors='coerce').diff().fillna(0)
+#         real_diff = np.where(raw_diff < 0, raw_diff + 256, raw_diff)
+#         error_indices = df[real_diff > 0].index.tolist()
         
-        valid_segments = []
-        if error_indices:
-            timestamps = pd.to_numeric(df.iloc[:, 0], errors='coerce')
-            curr_start = error_indices[0]
-            curr_last = error_indices[0]
+#         valid_segments = []
+#         if error_indices:
+#             timestamps = pd.to_numeric(df.iloc[:, 0], errors='coerce')
+#             curr_start = error_indices[0]
+#             curr_last = error_indices[0]
             
-            def save_segment(start, end):
-                segment_mask = df.index.isin(range(start, end+1))
-                segment_err = int(np.sum(real_diff[segment_mask]))
-                if segment_err >= 5:
-                    t_start = timestamps.iloc[start]
-                    t_end = timestamps.iloc[end]
-                    valid_segments.append({
-                        "start_time": datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S'),
-                        "end_time": datetime.fromtimestamp(t_end).strftime('%Y-%m-%d %H:%M:%S'),
-                        "error_count": segment_err
-                    })
+#             def save_segment(start, end):
+#                 segment_mask = df.index.isin(range(start, end+1))
+#                 segment_err = int(np.sum(real_diff[segment_mask]))
+#                 if segment_err >= 5:
+#                     t_start = timestamps.iloc[start]
+#                     t_end = timestamps.iloc[end]
+#                     valid_segments.append({
+#                         "start_time": datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S'),
+#                         "end_time": datetime.fromtimestamp(t_end).strftime('%Y-%m-%d %H:%M:%S'),
+#                         "error_count": segment_err
+#                     })
 
-            for idx in error_indices[1:]:
-                if (timestamps.iloc[idx] - timestamps.iloc[curr_last]) > 60:
-                    save_segment(curr_start, curr_last)
-                    curr_start = idx
-                curr_last = idx
-            save_segment(curr_start, curr_last)
+#             for idx in error_indices[1:]:
+#                 if (timestamps.iloc[idx] - timestamps.iloc[curr_last]) > 60:
+#                     save_segment(curr_start, curr_last)
+#                     curr_start = idx
+#                 curr_last = idx
+#             save_segment(curr_start, curr_last)
             
-        return json.dumps({"status": "fault_found" if valid_segments else "normal", "segments": valid_segments}, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+#         return json.dumps({"status": "fault_found" if valid_segments else "normal", "segments": valid_segments}, ensure_ascii=False)
+#     except Exception as e:
+#         return json.dumps({"error": str(e)})
 
 # 增加一个全局缓存用于知识库
 _KNOWLEDGE_CACHE = None
@@ -1980,13 +1943,17 @@ def investigate_telemetry_trends(satellite_name: str, start_time_str: str, end_t
 # ==============================================================================
 # 第三层：聚合工具 (Composite Tool)
 # ==============================================================================
-
-@mcp.tool(description="""[整星月度体检] 生成卫星全系统月度运行评估报告。
-包含：1.重要异常展示；2.分系统评估结果（姿轨控、热控等）；3.趋势预测（占位）。
-分析尺度：星敏(3min)、单机性能/姿态/热控(1day调试模式)、全月统计项(1month)。
+@mcp.tool(description="""[第一步] 执行月度数据分析。
+注意：此工具仅进行计算，不生成文件。
+返回结果包含所有异常项摘要。
+大模型应根据返回的异常内容进行思考，然后调用 `generate_final_report` 工具传入你的分析结论。
 """)
-def assess_monthly_performance(satellite_name: str, year_month: str = None) -> str:
-    logger.info(f"🚀 [整星月报] 任务启动: {satellite_name}")
+def run_monthly_analysis(satellite_name: str, year_month: str = None) -> str:
+    """
+    执行数据抓取和计算，将结果存入缓存，并返回异常摘要给 AI。
+    """
+    global _REPORT_CONTEXT
+    logger.info(f"🚀 [阶段一] 数据分析启动: {satellite_name}")
     try:
         # 1. 时间窗口计算
         if year_month: target_dt = datetime.strptime(year_month, '%Y-%m')
@@ -2057,29 +2024,194 @@ def assess_monthly_performance(satellite_name: str, year_month: str = None) -> s
         # --- 4. 热控分析 (1day) ---
         logger.info("🌡️ [Thermal] 分析热变形...")
         _, thermal_html = _analyze_thermal_impl(base_sat_code, d_start, d_end)
+        # ... (此处保留原有的时间计算、数据拉取、_analyze_xxx 调用逻辑) ...
+        # ... 代码逻辑与之前完全一致，直到算出 check_results, adcs_subs, thermal_html ...
+        
+        # 假设你已经跑完了所有 _analyze_xxx 函数
+        # (为了节省篇幅，这里省略中间的数据拉取代码，直接复用之前的逻辑)
+        # ...
+        
+        # --- 关键修改：不生成 HTML，而是存入缓存 ---
+        _REPORT_CONTEXT["satellite_name"] = satellite_name
+        _REPORT_CONTEXT["check_results"] = check_results
+        _REPORT_CONTEXT["adcs_subs"] = adcs_subs
+        _REPORT_CONTEXT["thermal_html"] = thermal_html
+        _REPORT_CONTEXT["timestamp"] = datetime.now()
 
-        # 5. 汇总生成
-        logger.info("📝 渲染最终整星月度报告...")
-        full_body = _generate_final_report_content(check_results, adcs_subs, thermal_html)
-        title = f"{satellite_name} 卫星月度体检报告"
-        final_msg = _wrap_html_report(full_body, title)
-        # ================= 核心修改点 =================
-        # 提取异常项，构造一段给 AI 看的文本摘要
-        anomalies = [r for r in check_results if isinstance(r, dict) and r.get('is_abnormal')]
+        # --- 构造返回给 AI 的“诊断单” ---
+        anomalies = [r for r in check_results if r.get('is_abnormal')]
+        
+        response_text = f"✅ 数据分析已完成。卫星 [{satellite_name}] 本月状态如下：\n"
+        response_text += f"- 总检测项: {len(check_results)}\n"
+        response_text += f"- 异常项: {len(anomalies)}\n\n"
         
         if anomalies:
-            summary_text = f"报告已生成。监测到 {len(anomalies)} 项异常，请立即分析：\n"
-            for i, r in enumerate(anomalies, 1):
-                summary_text += f"{i}. [{r.get('name')}] : {r.get('summary')}\n"
-            
-            summary_text += "\n请根据上述异常，调用 knowledge_base 工具获取处置建议，并给出分析结论。"
-            return str(final_msg) + "\n\n" + summary_text
+            response_text += "【发现以下异常，请进行综合诊断】：\n"
+            for r in anomalies:
+                response_text += f"- [{r['name']}] : {r['summary']}\n"
+            response_text += "\n请结合你的知识库，分析这些异常的关联性（例如：热变形是否导致了姿态超差？），然后调用 `generate_final_report` 生成报告。"
         else:
-            return str(final_msg) + "\n\n报告已生成。本月全星状态良好，无异常项，无需额外处置。"
+            response_text += "各项指标均正常。请调用 `generate_final_report` 生成一份健康的体检报告，并附上你的总结。"
 
+        return response_text
     except Exception as e:
         logger.error(f"严重错误: {e}", exc_info=True)
         return f"运行评估时发生错误: {str(e)}"
+    
+@mcp.tool(description="""[第二步] 生成最终 HTML 报告并注入 AI 深度分析。
+必须先调用 `run_monthly_analysis` 获取数据。
+参数 ai_analysis_content: 填入大模型基于异常数据生成的综合诊断、成因推断或处置建议。
+""")
+def generate_final_report(ai_analysis_content: str) -> str:
+    """
+    将缓存数据与 AI 分析结合，生成报告。AI 意见将显示在“重要异常展示”之后。
+    """
+    global _REPORT_CONTEXT
+    
+    sat_name = _REPORT_CONTEXT.get("satellite_name")
+    if not sat_name: return "❌ 错误：报告上下文为空，请先运行分析工具。"
+
+    logger.info(f"📝 [阶段二] 注入 AI 专家意见并渲染: {sat_name}")
+
+    try:
+        results = _REPORT_CONTEXT["check_results"]
+        subs = _REPORT_CONTEXT["adcs_subs"]
+        therm = _REPORT_CONTEXT["thermal_html"]
+
+        # 构造 AI 专家诊断卡片 HTML
+        # 增加 margin-bottom: 40px 确保和 Part 2 保持距离
+        formatted_content = ai_analysis_content.replace("\n", "<br>")
+        ai_insight_html = f"""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; color: white; margin-bottom: 40px; box-shadow: 0 10px 25px rgba(118, 75, 162, 0.4); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: -20px; right: -20px; font-size: 150px; opacity: 0.1;">🧠</div>
+            <h2 style="margin-top:0; color:white; display:flex; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px;">
+                <span style="font-size:28px; margin-right:12px;">🤖</span> AI 专家系统 · 综合诊断综述
+            </h2>
+            <div style="background: rgba(255,255,255,0.15); padding: 25px; border-radius: 10px; line-height: 1.8; font-size: 15px; border-left: 5px solid #a3bffa; margin-top: 20px;">
+                {formatted_content}
+            </div>
+            <div style="margin-top:15px; font-size:12px; opacity:0.8; text-align:right; font-family: monospace;">
+                Generated by Large Language Model • Based on {len(results)} telemetry metrics
+            </div>
+        </div>
+        """
+
+        # 调用生成函数，传入 ai_insight_html
+        full_body = _generate_final_report_content(
+            check_results=results, 
+            adcs_subsections=subs, 
+            thermal_html=therm,
+            ai_insight_html=ai_insight_html  # <--- 传入参数
+        )
+        
+        title = f"{sat_name} 卫星月度体检报告 (AI增强版)"
+        msg = _wrap_html_report(full_body, title)
+        
+        return str(msg) if msg else "报告生成完成。"
+
+    except Exception as e:
+        logger.error(f"报告生成崩溃: {e}", exc_info=True)
+        return f"生成报告时发生错误: {str(e)}"
+    
+# @mcp.tool(description="""[整星月度体检] 生成卫星全系统月度运行评估报告。
+# 包含：1.重要异常展示；2.分系统评估结果（姿轨控、热控等）；3.趋势预测（占位）。
+# 分析尺度：星敏(3min)、单机性能/姿态/热控(1day调试模式)、全月统计项(1month)。
+# """)
+# def assess_monthly_performance(satellite_name: str, year_month: str = None) -> str:
+#     logger.info(f"🚀 [整星月报] 任务启动: {satellite_name}")
+#     try:
+#         # 1. 时间窗口计算
+#         if year_month: target_dt = datetime.strptime(year_month, '%Y-%m')
+#         else: target_dt = (datetime.now().replace(day=1) - timedelta(days=1)).replace(day=1)
+        
+#         m_start = target_dt.strftime('%Y-%m-01 00:00:00')
+#         if target_dt.month == 12: next_m = target_dt.replace(year=target_dt.year + 1, month=1)
+#         else: next_m = target_dt.replace(month=target_dt.month + 1)
+#         m_end = (next_m - timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
+
+#         d_start_dt = target_dt.replace(day=15)
+#         d_start, d_end = d_start_dt.strftime('%Y-%m-%d 00:00:00'), d_start_dt.strftime('%Y-%m-%d 23:59:59')
+#         s3_start, s3_end = d_start, (d_start_dt + timedelta(minutes=3)).strftime('%Y-%m-%d %H:%M:%S')
+
+#         # 2. 卫星配置定位
+#         base_sat_code, _ = _get_codes_impl(satellite_name, "任意")
+#         if not base_sat_code: return f"❌ 未找到卫星 {satellite_name} 配置"
+
+#         check_results, adcs_subs = [], {"fault_stats": "", "unit_perf": "","sys_faults": "", "sys_perf": ""}
+        
+#         # --- 3. 姿轨控分析 ---
+#         # 3.1 故障统计 (1month)
+#         logger.info("📡 [ADCS] 分析故障计数与通信...")
+#         c_res, c_html = _analyze_device_errors_impl(base_sat_code, m_start, m_end)
+#         f_res, f_html = _analyze_all_unit_faults_impl(satellite_name, m_start, m_end)
+#         check_results.extend(c_res + f_res)
+#         adcs_subs["fault_stats"] = (c_html or "") + (f_html or "")
+
+#         # 3.2 单机性能 (3min/1day)
+#         logger.info("📡 [ADCS] 分析单机噪声与零偏...")
+#         for label in ["星敏A", "星敏B"]:
+#             _, tm = _get_codes_impl(satellite_name, label)
+#             if tm:
+#                 df = _get_data_impl(base_sat_code, tm, s3_start, s3_end)
+#                 res = _analyze_star_sensor_impl(df, label)
+#                 check_results.append({"name": label, **res}); adcs_subs["unit_perf"] += res['html']
+
+#         for g_cfg in [{"key": "gyro_a_bias", "name": "陀螺A"}, {"key": "gyro_b_bias", "name": "陀螺B"}]:
+#             _, tm_b = _get_codes_impl(satellite_name, g_cfg["key"])
+#             if tm_b:
+#                 df_b = _get_data_impl(base_sat_code, tm_b, d_start, d_end)
+#                 res_b = _analyze_gyro_bias_impl(df_b, g_cfg["name"])
+#                 adcs_subs["unit_perf"] += res_b["html"]
+
+#         # 3.4 系统性能 (1day姿态, 1month轨道)
+#         logger.info("🛰️ [ADCS] 分析系统精度与轨道维持...")
+#         _, tm_att = _get_codes_impl(satellite_name, "姿态")
+#         if tm_att:
+#             df_att = _get_data_impl(base_sat_code, tm_att, d_start, d_end) # 调试模式1day
+#             res_att = _analyze_attitude_monthly_impl(df_att)
+#             check_results.append({"name": "姿态控制", **res_att}); adcs_subs["sys_perf"] += res_att['html']
+
+#         for item in ["平根半长轴", "降交点", "电推"]:
+#             _, tm_item = _get_codes_impl(satellite_name, item)
+#             if tm_item:
+#                 df_item = _get_data_impl(base_sat_code, tm_item, m_start, m_end)
+#                 if "半长轴" in item: res_s = _analyze_orbit_impl(df_item)
+#                 elif "降交点" in item: res_s = _analyze_ltdn_impl(df_item)
+#                 else: res_s = _analyze_propulsion_impl(df_item)
+#                 check_results.append({"name": item, **res_s}); adcs_subs["sys_perf"] += res_s['html']
+
+#         # --- [插入位置] 3.5 系统故障统计 (1month) ---
+#         logger.info("📡 [ADCS] 分析系统级故障(安全模式)...")
+#         sys_res, sys_html = _analyze_system_faults_impl(satellite_name, m_start, m_end)
+#         check_results.extend(sys_res)
+#         adcs_subs["sys_faults"] = sys_html
+
+#         # --- 4. 热控分析 (1day) ---
+#         logger.info("🌡️ [Thermal] 分析热变形...")
+#         _, thermal_html = _analyze_thermal_impl(base_sat_code, d_start, d_end)
+
+#         # 5. 汇总生成
+#         logger.info("📝 渲染最终整星月度报告...")
+#         full_body = _generate_final_report_content(check_results, adcs_subs, thermal_html)
+#         title = f"{satellite_name} 卫星月度体检报告"
+#         final_msg = _wrap_html_report(full_body, title)
+#         # ================= 核心修改点 =================
+#         # 提取异常项，构造一段给 AI 看的文本摘要
+#         anomalies = [r for r in check_results if isinstance(r, dict) and r.get('is_abnormal')]
+        
+#         if anomalies:
+#             summary_text = f"报告已生成。监测到 {len(anomalies)} 项异常，请立即分析：\n"
+#             for i, r in enumerate(anomalies, 1):
+#                 summary_text += f"{i}. [{r.get('name')}] : {r.get('summary')}\n"
+            
+#             summary_text += "\n请根据上述异常，调用 knowledge_base 工具获取处置建议，并给出分析结论。"
+#             return str(final_msg) + "\n\n" + summary_text
+#         else:
+#             return str(final_msg) + "\n\n报告已生成。本月全星状态良好，无异常项，无需额外处置。"
+
+#     except Exception as e:
+#         logger.error(f"严重错误: {e}", exc_info=True)
+#         return f"运行评估时发生错误: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
