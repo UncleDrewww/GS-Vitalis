@@ -120,3 +120,18 @@ satellites:
       obdh_thermal_manage:
         code: "TMH4308,TMH4309,TMH4311,TMH4315,TMH4316"
         desc: "自主测温点替换次数,被替测温点加热器索引,废弃加热器数量,最近输出热控通道号,最近废弃加热器索引"
+
+# --- 能源分系统 (EPS) ---
+      # 既有的基础电压电流
+      eps_basic:
+        code: "TMN001,TMN002,TMN010,TMN007"
+        desc: "母线电压,蓄电池电压,负载电流,太阳翼电流"
+      
+      # PCDU 内部电压
+      eps_pcdu:
+        code: "TMN004,TMN005,TMN006"
+        desc: "PCDU+12V,PCDU-12V,PCDU+5V"
+# --- # 蓄电池温度 ---
+      eps_batt_temp:
+        code: "TMN103,TMN104,TMN105,TMN106"
+        desc: "电池温度1,电池温度2,电池温度3,电池温度4"
