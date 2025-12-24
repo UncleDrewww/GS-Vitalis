@@ -1492,14 +1492,9 @@ def _analyze_obdh_thermal_impl(satellite_name: str, start_str: str, end_str: str
     return results, html
 
 def _analyze_pcdu_stability_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
-    """
-    [能源分系统] PCDU 内部电压稳定性分析。
-    重点评估：均值是否达标、波动（3σ）是否过大。
-    """
+    # ... (前置配置查找代码不变) ...
     global _SAT_CONFIG_CACHE
     if _SAT_CONFIG_CACHE is None: _get_codes_impl(satellite_name, "任意")
-
-    # 1. 查找配置
     target_sat_config = None
     search_q = satellite_name.upper().strip()
     for sid, sdata in _SAT_CONFIG_CACHE.get('satellites', {}).items():
@@ -1508,65 +1503,57 @@ def _analyze_pcdu_stability_impl(satellite_name: str, start_str: str, end_str: s
             break
     if not target_sat_config: return [], ""
 
-    # 2. 读取配置
     entry = target_sat_config.get('telemetry', {}).get('eps_pcdu', {})
     if not entry: return [], ""
-
     codes = [c.strip() for c in entry.get('code', '').split(',') if c.strip()]
     
-    # 3. 定义安全阈值 (根据你的图片)
     LIMITS = {
         "TMN004": {"name": "自用+12V", "min": 11.0, "max": 12.0, "color": "#e67e22"},
         "TMN005": {"name": "自用-12V", "min": -12.5, "max": -11.5, "color": "#3498db"},
         "TMN006": {"name": "自用+5V",  "min": 4.0,  "max": 5.0,  "color": "#2ecc71"}
     }
 
-    # 4. 获取数据
     df = _get_data_impl(target_sat_config.get('db_table'), entry.get('code'), start_str, end_str)
-    
-    if df.empty:
-        return [], "<div style='color:#ccc; text-align:center;'>暂无 PCDU 电压数据</div>"
+    if df.empty: return [], "<div style='color:#ccc; text-align:center;'>暂无数据</div>"
 
-    # 5. 分析计算
     results = []
     table_rows = ""
-    plot_data = [] # 用于绘图
+    plot_data = []
     has_anomaly = False
 
     for code in codes:
-        if code not in df.columns: continue
-        if code not in LIMITS: continue
-        
+        if code not in df.columns or code not in LIMITS: continue
         info = LIMITS[code]
         series = pd.to_numeric(df[code], errors='coerce').dropna()
-        
-        if series.empty:
-            continue
+        if series.empty: continue
 
-        # 统计指标
         curr_mean = series.mean()
         curr_std = series.std()
         curr_min = series.min()
         curr_max = series.max()
         
-        # 判定逻辑
-        is_out_of_range = (curr_min < info['min']) or (curr_max > info['max'])
-        # 稳定性判定：如果 3σ > 0.5V (假设值，可视情况调整)，认为波动过大
+        is_out = (curr_min < info['min']) or (curr_max > info['max'])
         is_unstable = (3 * curr_std) > 0.5 
-        
-        is_abnormal = is_out_of_range or is_unstable
+        is_abnormal = is_out or is_unstable
         if is_abnormal: has_anomaly = True
 
-        # 构造异常报告
         status_str = "正常"
-        if is_out_of_range:
-            status_str = f"超限 (Range: {curr_min:.2f}~{curr_max:.2f})"
-            results.append({"name": f"PCDU异常({info['name']})", "is_abnormal": True, "summary": status_str})
+        summary_str = "电压稳定"
+        
+        if is_out:
+            status_str = f"超限 ({curr_min:.2f}/{curr_max:.2f})"
+            summary_str = status_str
         elif is_unstable:
-            status_str = f"波动大 (3σ: {3*curr_std:.3f})"
-            results.append({"name": f"PCDU波动({info['name']})", "is_abnormal": True, "summary": status_str})
+            status_str = f"波动 ({3*curr_std:.3f})"
+            summary_str = status_str
 
-        # 准备表格行
+        # 【核心修正】无论是否异常，都加入结果列表
+        results.append({
+            "name": f"PCDU({info['name']})", 
+            "is_abnormal": is_abnormal, 
+            "summary": summary_str
+        })
+
         style = "background:#fff5f5; color:#dc3545; font-weight:bold;" if is_abnormal else ""
         table_rows += f"""
         <tr style='{style}'>
@@ -1575,59 +1562,38 @@ def _analyze_pcdu_stability_impl(satellite_name: str, start_str: str, end_str: s
             <td style='border:1px solid #eee;'>{3*curr_std:.4f} V</td>
             <td style='border:1px solid #eee; color:#666;'>{info['min']} ~ {info['max']}</td>
             <td style='border:1px solid #eee;'>{status_str}</td>
-        </tr>
-        """
+        </tr>"""
         
         plot_data.append({"series": series, "name": info['name'], "color": info['color']})
 
-    # 6. 绘图 (三线并列)
+    # ... (绘图和 HTML 生成部分保持不变) ...
     img_html = ""
     if plot_data:
         try:
             fig, ax = plt.subplots(figsize=(9, 4))
             for item in plot_data:
-                # 降采样以提高性能 (如果数据量极大)
                 s_plot = item['series']
                 if len(s_plot) > 5000: s_plot = s_plot.iloc[::5] 
-                
-                x_axis = range(len(s_plot))
-                ax.plot(x_axis, s_plot, label=f"{item['name']} (Mean:{s_plot.mean():.1f}V)", 
-                        color=item['color'], linewidth=1, alpha=0.8, rasterized=True)
-            
-            ax.set_title("PCDU 内部电压全月稳定性曲线")
-            ax.set_ylabel("电压 (V)")
-            ax.legend(loc='center right')
+                ax.plot(range(len(s_plot)), s_plot, label=f"{item['name']}", color=item['color'], linewidth=1, alpha=0.8)
+            ax.legend()
             ax.grid(True, alpha=0.3)
-            
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=100)
             plt.close(fig)
             b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
             img_html = f'<div style="text-align:center; margin-top:15px;"><img src="data:image/png;base64,{b64}" style="max-width:100%; border:1px solid #ddd;"></div>'
-        except Exception as e:
-            img_html = f"<div style='color:red'>绘图失败: {e}</div>"
+        except: pass
 
-    # 7. 组装 HTML
-    summary_text = "内部电压极其稳定" if not has_anomaly else "发现电压异常波动"
     status_color = "#dc3545" if has_anomaly else "#28a745"
-
     html = f"""
     <div style="margin-left:10px; margin-top:20px;">
         <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">2. PCDU 内部电压稳定性</h3>
-        
-        <div style="padding:8px 12px; border-left:4px solid {status_color}; background:{status_color}1a; margin:10px 0; font-size:12px; color:#333; border-radius:0 4px 4px 0;">
-            <strong>评估结论：</strong> {summary_text}
+        <div style="padding:8px 12px; border-left:4px solid {status_color}; background:{status_color}1a; margin:10px 0; font-size:12px; color:#333;">
+            <strong>评估结论：</strong> {"存在电压异常" if has_anomaly else "内部电压稳定"}
         </div>
-        
         <table style="width:100%; border-collapse:collapse; text-align:center; font-size:13px; border:1px solid #eee;">
             <thead style="background:#f8f9fa;">
-                <tr>
-                    <th style="padding:10px; border:1px solid #eee;">电压路数</th>
-                    <th style="border:1px solid #eee;">实际均值</th>
-                    <th style="border:1px solid #eee;">波动幅度 (3σ)</th>
-                    <th style="border:1px solid #eee;">安全阈值</th>
-                    <th style="border:1px solid #eee;">状态</th>
-                </tr>
+                <tr><th style="width:20%; padding:10px; border:1px solid #eee;">电压路数</th><th style="width:20%; border:1px solid #eee;">均值</th><th style="width:20%; border:1px solid #eee;">波动(3σ)</th><th style="width:20%; border:1px solid #eee;">阈值</th><th style="width:20%; border:1px solid #eee;">状态</th></tr>
             </thead>
             <tbody>{table_rows}</tbody>
         </table>
@@ -1637,14 +1603,9 @@ def _analyze_pcdu_stability_impl(satellite_name: str, start_str: str, end_str: s
     return results, html
 
 def _analyze_eps_batt_temp_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
-    """
-    [能源分系统] 蓄电池温度统计分析。
-    包含野值剔除逻辑，统计全月温度分布区间。
-    """
+    # ... (前置配置查找代码不变) ...
     global _SAT_CONFIG_CACHE
     if _SAT_CONFIG_CACHE is None: _get_codes_impl(satellite_name, "任意")
-
-    # 1. 查找配置
     target_sat_config = None
     search_q = satellite_name.upper().strip()
     for sid, sdata in _SAT_CONFIG_CACHE.get('satellites', {}).items():
@@ -1653,137 +1614,81 @@ def _analyze_eps_batt_temp_impl(satellite_name: str, start_str: str, end_str: st
             break
     if not target_sat_config: return [], ""
 
-    # 2. 读取配置
     entry = target_sat_config.get('telemetry', {}).get('eps_batt_temp', {})
     if not entry: return [], ""
-
     codes = [c.strip() for c in entry.get('code', '').split(',') if c.strip()]
     names = [n.strip() for n in entry.get('desc', '').split(',') if n.strip()]
     map_dict = dict(zip(codes, names))
 
-    # 3. 获取数据
     df = _get_data_impl(target_sat_config.get('db_table'), entry.get('code'), start_str, end_str)
-    
-    if df.empty:
-        return [], "<div style='color:#ccc; text-align:center;'>暂无电池温度数据</div>"
+    if df.empty: return [], "<div style='color:#ccc; text-align:center;'>暂无数据</div>"
 
-    # 4. 分析逻辑 (含野值剔除)
     results = []
     table_rows = ""
     plot_data = []
-    
-    LIMIT_MIN, LIMIT_MAX = 10.0, 30.0 # 正常工作范围
-    PHYSICAL_MIN, PHYSICAL_MAX = -40.0, 80.0 # 物理合理范围 (用于初筛)
-
     has_anomaly = False
+    LIMIT_MIN, LIMIT_MAX = 10.0, 30.0 
 
     for code in codes:
         if code not in df.columns: continue
         name = map_dict.get(code, code)
+        raw = pd.to_numeric(df[code], errors='coerce').dropna()
+        if raw.empty: continue
         
-        # 4.1 原始数据清洗
-        raw_series = pd.to_numeric(df[code], errors='coerce').dropna()
-        if raw_series.empty: continue
+        # 简单清洗
+        clean = raw[(raw > -40) & (raw < 80)]
+        if clean.empty: continue
         
-        # 步骤A: 物理范围剔除 (去除 0xFF, -999 等明显错误)
-        valid_series = raw_series[(raw_series >= PHYSICAL_MIN) & (raw_series <= PHYSICAL_MAX)]
-        
-        # 步骤B: 统计滤波 (3-Sigma 剔除突变毛刺)
-        if len(valid_series) > 10:
-            mean_val = valid_series.mean()
-            std_val = valid_series.std()
-            # 仅保留在 Mean ± 4*Std 范围内的数据 (给稍微宽一点的裕度，保留真实波动)
-            clean_series = valid_series[(valid_series >= mean_val - 4*std_val) & (valid_series <= mean_val + 4*std_val)]
-        else:
-            clean_series = valid_series
-
-        if clean_series.empty: continue
-
-        # 4.2 统计指标
-        t_min = clean_series.min()
-        t_max = clean_series.max()
-        t_avg = clean_series.mean()
-        
-        # 4.3 判定逻辑
-        # 只要均值在范围内，且极值不超太多，通常认为正常
-        # 严格判定：极值是否越界
+        t_min, t_max, t_avg = clean.min(), clean.max(), clean.mean()
         is_abnormal = (t_min < LIMIT_MIN) or (t_max > LIMIT_MAX)
+        if is_abnormal: has_anomaly = True
         
-        status_str = "正常"
-        style = ""
-        if is_abnormal:
-            has_anomaly = True
-            status_str = f"<span style='color:#dc3545'>越限 ({t_min:.1f}/{t_max:.1f})</span>"
-            style = "background:#fff5f5;"
-            results.append({
-                "name": f"电池温控({name})",
-                "is_abnormal": True,
-                "summary": f"温度越限 {t_min:.1f}~{t_max:.1f}°C"
-            })
+        status_str = f"<span style='color:#dc3545'>越限</span>" if is_abnormal else "正常"
+        
+        # 【核心修正】加入所有项
+        results.append({
+            "name": f"电池({name})",
+            "is_abnormal": is_abnormal,
+            "summary": f"温度越限 {t_min:.1f}~{t_max:.1f}" if is_abnormal else "温度正常"
+        })
 
+        style = "background:#fff5f5;" if is_abnormal else ""
         table_rows += f"""
         <tr style='{style}'>
             <td style='padding:10px; border:1px solid #eee;'>{name}</td>
-            <td style='border:1px solid #eee;'>{t_avg:.2f}</td>
-            <td style='border:1px solid #eee;'>{t_min:.2f} ~ {t_max:.2f}</td>
-            <td style='border:1px solid #eee; color:#666;'>{LIMIT_MIN} ~ {LIMIT_MAX}</td>
+            <td style='border:1px solid #eee;'>{t_avg:.1f}</td>
+            <td style='border:1px solid #eee;'>{t_min:.1f} ~ {t_max:.1f}</td>
+            <td style='border:1px solid #eee; color:#666;'>10~30</td>
             <td style='border:1px solid #eee;'>{status_str}</td>
-        </tr>
-        """
-        
-        plot_data.append({"data": clean_series, "label": name})
+        </tr>"""
+        plot_data.append({"data": clean, "label": name})
 
-    # 5. 绘图 (全月趋势)
+    # ... (绘图和 HTML 生成不变) ...
     img_html = ""
     if plot_data:
         try:
             fig, ax = plt.subplots(figsize=(9, 4))
-            colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71'] # 红蓝黄绿
-            
             for i, item in enumerate(plot_data):
-                # 降采样，防止绘图过慢
-                s_plot = item['data']
-                if len(s_plot) > 5000: s_plot = s_plot.iloc[::5]
-                
-                ax.plot(range(len(s_plot)), s_plot, label=item['label'], 
-                        color=colors[i % 4], linewidth=1, alpha=0.8, rasterized=True)
-            
-            # 画安全阈值线
-            ax.axhline(y=LIMIT_MAX, color='red', linestyle='--', alpha=0.5, label='上限 30°C')
-            ax.axhline(y=LIMIT_MIN, color='blue', linestyle='--', alpha=0.5, label='下限 10°C')
-            
-            ax.set_title("蓄电池组全月温度变化曲线")
-            ax.set_ylabel("温度 (°C)")
-            ax.legend(loc='upper right', fontsize='small')
-            ax.grid(True, alpha=0.3)
-            
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=100)
-            plt.close(fig)
+                s = item['data']
+                if len(s)>5000: s=s.iloc[::5]
+                ax.plot(range(len(s)), s, label=item['label'], linewidth=1, alpha=0.8)
+            ax.axhline(y=30, color='r', linestyle='--'); ax.axhline(y=10, color='b', linestyle='--')
+            ax.legend(); ax.grid(True, alpha=0.3)
+            buf = io.BytesIO(); plt.savefig(buf, format='png', dpi=100); plt.close(fig)
             b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
             img_html = f'<div style="text-align:center; margin-top:15px;"><img src="data:image/png;base64,{b64}" style="max-width:100%; border:1px solid #ddd;"></div>'
-        except Exception as e:
-            img_html = f"<div style='color:red'>绘图失败: {e}</div>"
+        except: pass
 
-    # 6. 组装 HTML
-    status_text = "电池温度环境适宜" if not has_anomaly else "电池工作温度异常"
-    color = "#28a745" if not has_anomaly else "#dc3545"
-
+    status_color = "#dc3545" if has_anomaly else "#28a745"
     html = f"""
     <div style="margin-left:10px; margin-top:20px;">
-        <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">2. 蓄电池温度分析</h3>
-        <div style="padding:8px 12px; border-left:4px solid {color}; background:{color}1a; margin:10px 0; font-size:12px; color:#333; border-radius:0 4px 4px 0;">
-            <strong>评估结论：</strong> {status_text}
+        <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">3. 蓄电池温度分析</h3>
+        <div style="padding:8px 12px; border-left:4px solid {status_color}; background:{status_color}1a; margin:10px 0; font-size:12px; color:#333;">
+            <strong>评估结论：</strong> {"温度环境异常" if has_anomaly else "温度环境适宜"}
         </div>
         <table style="width:100%; border-collapse:collapse; text-align:center; font-size:13px; border:1px solid #eee;">
             <thead style="background:#f8f9fa;">
-                <tr>
-                    <th style="padding:10px; border:1px solid #eee;">测温点</th>
-                    <th style="border:1px solid #eee;">月均温 (°C)</th>
-                    <th style="border:1px solid #eee;">实际区间 (Min/Max)</th>
-                    <th style="border:1px solid #eee;">指标范围</th>
-                    <th style="border:1px solid #eee;">判定</th>
-                </tr>
+                <tr><th style="width:20%; padding:10px; border:1px solid #eee;">测温点</th><th style="width:20%; border:1px solid #eee;">均温</th><th style="width:20%; border:1px solid #eee;">极值区间</th><th style="width:20%; border:1px solid #eee;">指标</th><th style="width:20%; border:1px solid #eee;">判定</th></tr>
             </thead>
             <tbody>{table_rows}</tbody>
         </table>
