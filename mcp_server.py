@@ -152,6 +152,16 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
         "零偏": ["gyro_a_bias", "gyro_b_bias"],
         "控制模式": ["control_mode"],
         "错误日志": ["error_log_count"],
+
+        # --- 星务 ---
+        "复位": ["obdh_resets"],
+        "计算机复位": ["obdh_resets"],
+
+        "总线错误": ["obdh_bus_errors"],
+        "通信质量": ["obdh_bus_errors"],
+
+        "热控管理": ["obdh_thermal_manage"],
+        "废弃加热器": ["obdh_thermal_manage"],
     }
 
     found_key = None
@@ -1209,6 +1219,272 @@ def _analyze_system_faults_impl(satellite_name: str, start_str: str, end_str: st
     """
     return results, html
 
+def _analyze_obdh_resets_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
+    """
+    [星务分系统] 统计计算机复位计数 (UI优化版)。
+    """
+    global _SAT_CONFIG_CACHE
+    if _SAT_CONFIG_CACHE is None: _get_codes_impl(satellite_name, "任意")
+
+    # 1. 查找配置
+    target_sat_config = None
+    search_q = satellite_name.upper().strip()
+    for sid, sdata in _SAT_CONFIG_CACHE.get('satellites', {}).items():
+        if sid.upper() == search_q or sdata.get('name','').upper() == search_q or search_q in [a.upper() for a in sdata.get('aliases', [])]:
+            target_sat_config = sdata
+            break
+    
+    if not target_sat_config: return [], ""
+
+    # 2. 获取配置项
+    entry = target_sat_config.get('telemetry', {}).get('obdh_resets', {})
+    if not entry: return [], ""
+
+    codes = [c.strip() for c in entry.get('code', '').split(',') if c.strip()]
+    names = [n.strip() for n in entry.get('desc', '').split(',') if n.strip()]
+    map_dict = dict(zip(codes, names))
+
+    # 3. 获取数据
+    df = _get_data_impl(target_sat_config.get('db_table'), entry.get('code'), start_str, end_str)
+    
+    if df.empty:
+        return [], "<div style='color:#999; text-align:center; padding:10px;'>暂无复位遥测数据</div>"
+
+    # 4. 分析增量
+    results = []
+    table_rows = ""
+
+    for code in codes:
+        name = map_dict.get(code, "未知复位项")
+        inc = 0
+        if code in df.columns:
+            series = pd.to_numeric(df[code], errors='coerce').dropna()
+            if not series.empty:
+                inc = int(series.iloc[-1] - series.iloc[0])
+                if inc < 0: 
+                    diffs = series.diff().fillna(0)
+                    inc = int(diffs[diffs > 0].sum())
+        
+        results.append({
+            "name": f"总线({name})", 
+            "is_abnormal": inc > 0, 
+            "summary": f"计数增长 {inc}" if inc > 0 else "正常"
+        })
+            
+        style = "background:#fff5f5; color:#dc3545; font-weight:bold;" if inc > 0 else ""
+        
+        # UI优化：移除代号列，统一 padding 和 border
+        table_rows += f"""
+        <tr style='{style}'>
+            <td style='padding:10px; border:1px solid #eee; text-align:left; padding-left:20px;'>{name}</td>
+            <td style='padding:10px; border:1px solid #eee;'>{inc}</td>
+        </tr>
+        """
+
+    # 5. 生成 HTML (强制设定列宽 70% / 30%)
+    html = f"""
+    <div style="margin-left:10px; margin-bottom:30px;">
+        <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">1. 计算机复位计数统计</h3>
+        <table style="width:100%; border-collapse:collapse; text-align:center; font-size:13px; margin-top:10px; border:1px solid #eee;">
+            <thead style="background:#f8f9fa;">
+                <tr>
+                    <th style="width:70%; padding:10px; border:1px solid #eee;">复位类型</th>
+                    <th style="width:30%; padding:10px; border:1px solid #eee;">本月增量 (次)</th>
+                </tr>
+            </thead>
+            <tbody>{table_rows}</tbody>
+        </table>
+    </div>
+    """
+    return results, html
+
+def _analyze_obdh_bus_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
+    """
+    [星务分系统] 总线通信错误计数统计 (UI优化版)。
+    """
+    global _SAT_CONFIG_CACHE
+    if _SAT_CONFIG_CACHE is None: _get_codes_impl(satellite_name, "任意")
+
+    # 1. 查找配置
+    target_sat_config = None
+    search_q = satellite_name.upper().strip()
+    for sid, sdata in _SAT_CONFIG_CACHE.get('satellites', {}).items():
+        if sid.upper() == search_q or sdata.get('name','').upper() == search_q or search_q in [a.upper() for a in sdata.get('aliases', [])]:
+            target_sat_config = sdata
+            break
+    if not target_sat_config: return [], ""
+
+    # 2. 读取配置
+    entry = target_sat_config.get('telemetry', {}).get('obdh_bus_errors', {})
+    if not entry: return [], ""
+
+    codes = [c.strip() for c in entry.get('code', '').split(',') if c.strip()]
+    names = [n.strip() for n in entry.get('desc', '').split(',') if n.strip()]
+    map_dict = dict(zip(codes, names))
+
+    # 3. 拉取数据
+    df = _get_data_impl(target_sat_config.get('db_table'), entry.get('code'), start_str, end_str)
+    if df.empty: return [], "<div style='color:#ccc; text-align:center;'>暂无数据</div>"
+
+    # 4. 计算
+    results = []
+    table_rows = ""
+    has_error = False
+
+    for code in codes:
+        name = map_dict.get(code, "未知错误项")
+        inc = 0
+        if code in df.columns:
+            series = pd.to_numeric(df[code], errors='coerce').dropna()
+            if not series.empty:
+                diffs = series.diff().fillna(0)
+                inc = int(diffs[diffs > 0].sum())
+        
+        if inc > 0:has_error = True
+
+        results.append({
+            "name": f"总线({name})", 
+            "is_abnormal": inc > 0, 
+            "summary": f"计数增长 {inc}" if inc > 0 else "正常"
+        })
+            
+        style = "background:#fff5f5; color:#dc3545; font-weight:bold;" if inc > 0 else ""
+        
+        # UI优化：移除代号列
+        table_rows += f"""
+        <tr style='{style}'>
+            <td style='padding:10px; border:1px solid #eee; text-align:left; padding-left:20px;'>{name}</td>
+            <td style='padding:10px; border:1px solid #eee;'>{inc}</td>
+        </tr>
+        """
+
+    # 5. 生成 HTML (保持列宽与复位表一致：70% / 30%)
+    summary_text = "发现总线通信误码" if has_error else "总线通信质量优异"
+    status_color = "#dc3545" if has_error else "#28a745"
+
+    html = f"""
+    <div style="margin-left:10px; margin-top:20px;">
+        <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">2. 总线通信错误统计</h3>
+        
+        <div style="padding:8px 12px; border-left:4px solid {status_color}; background:{status_color}1a; margin:10px 0; font-size:12px; color:#333; border-radius:0 4px 4px 0;">
+            <strong>检测结论：</strong> {summary_text}
+        </div>
+        
+        <table style="width:100%; border-collapse:collapse; text-align:center; font-size:13px; border:1px solid #eee;">
+            <thead style="background:#f8f9fa;">
+                <tr>
+                    <th style="width:70%; padding:10px; border:1px solid #eee;">错误类型</th>
+                    <th style="width:30%; padding:10px; border:1px solid #eee;">本月增量 (次)</th>
+                </tr>
+            </thead>
+            <tbody>{table_rows}</tbody>
+        </table>
+    </div>
+    """
+    return results, html
+
+def _analyze_obdh_thermal_impl(satellite_name: str, start_str: str, end_str: str) -> Tuple[List[Dict], str]:
+    """
+    [星务分系统] 热控自主管理状态监视。
+    逻辑：统计‘次数’类的增量，展示‘索引’类的最新值。
+    """
+    global _SAT_CONFIG_CACHE
+    if _SAT_CONFIG_CACHE is None: _get_codes_impl(satellite_name, "任意")
+
+    # 1. 查找配置
+    target_sat_config = None
+    search_q = satellite_name.upper().strip()
+    for sid, sdata in _SAT_CONFIG_CACHE.get('satellites', {}).items():
+        if sid.upper() == search_q or sdata.get('name','').upper() == search_q or search_q in [a.upper() for a in sdata.get('aliases', [])]:
+            target_sat_config = sdata
+            break
+    if not target_sat_config: return [], ""
+
+    # 2. 读取配置
+    entry = target_sat_config.get('telemetry', {}).get('obdh_thermal_manage', {})
+    if not entry: return [], ""
+
+    codes = [c.strip() for c in entry.get('code', '').split(',') if c.strip()]
+    names = [n.strip() for n in entry.get('desc', '').split(',') if n.strip()]
+    map_dict = dict(zip(codes, names))
+
+    # 3. 拉取数据
+    df = _get_data_impl(target_sat_config.get('db_table'), entry.get('code'), start_str, end_str)
+    
+    if df.empty:
+        return [], "<div style='color:#ccc; text-align:center;'>暂无热控管理数据</div>"
+
+    # 4. 分析逻辑
+    results = []
+    table_rows = ""
+    has_issue = False
+
+    for code in codes:
+        name = map_dict.get(code, "未知项")
+        display_val = "N/A"
+        is_alert = False
+        
+        if code in df.columns:
+            series = pd.to_numeric(df[code], errors='coerce').dropna()
+            if not series.empty:
+                # --- 分类处理逻辑 ---
+                if "次数" in name or "数量" in name:
+                    # 计数类：算增量
+                    diffs = series.diff().fillna(0)
+                    inc = int(diffs[diffs > 0].sum())
+                    display_val = f"+{inc}"
+                    if inc > 0: is_alert = True
+                else:
+                    # 索引/通道类：取最新值
+                    curr = int(series.iloc[-1])
+                    display_val = str(curr)
+                    # 只有当索引有效且对应计数增加时才算异常，这里仅作展示，不标红，除非配合计数逻辑
+                    # 但为了简单，如果"最近废弃索引"不为0(假设0是无效)，也可以关注，视具体协议而定
+                    # 这里保持保守策略：只对计数增长标红
+
+        # 异常收集
+        if is_alert:has_issue = True
+
+        results.append({
+            "name": f"热控({name})", 
+            "is_abnormal": is_alert, 
+            "summary": f"计数增长 {display_val}" if is_alert else "状态正常"
+        })
+
+        # 样式构建 (保持 70% / 30% 对齐)
+        style = "background:#fff5f5; color:#dc3545; font-weight:bold;" if is_alert else ""
+        table_rows += f"""
+        <tr style='{style}'>
+            <td style='padding:10px; border:1px solid #eee; text-align:left; padding-left:20px;'>{name}</td>
+            <td style='padding:10px; border:1px solid #eee;'>{display_val}</td>
+        </tr>
+        """
+
+    # 5. 生成 HTML
+    summary_text = "发现自主热控切换" if has_issue else "热控管理逻辑稳定"
+    status_color = "#dc3545" if has_issue else "#28a745"
+
+    html = f"""
+    <div style="margin-left:10px; margin-top:20px;">
+        <h3 style="font-size:14px; color:#4a5568; border-bottom:1px dashed #eee; padding-bottom:5px;">3. 热控管理状态监视</h3>
+        
+        <div style="padding:8px 12px; border-left:4px solid {status_color}; background:{status_color}1a; margin:10px 0; font-size:12px; color:#333; border-radius:0 4px 4px 0;">
+            <strong>检测结论：</strong> {summary_text}
+        </div>
+        
+        <table style="width:100%; border-collapse:collapse; text-align:center; font-size:13px; border:1px solid #eee;">
+            <thead style="background:#f8f9fa;">
+                <tr>
+                    <th style="width:70%; padding:10px; border:1px solid #eee;">监视项目</th>
+                    <th style="width:30%; padding:10px; border:1px solid #eee;">状态值 / 月增量</th>
+                </tr>
+            </thead>
+            <tbody>{table_rows}</tbody>
+        </table>
+    </div>
+    """
+    return results, html
+
 def _analyze_fault_count_impl(sat_code: str, start_str: str, end_str: str) -> Tuple[Dict, str]:
     _, tm_code = _get_codes_impl(sat_code, "故障置出")
     if not tm_code: return {"error": "未配置"}, "<div class='error'>未配置代号</div>"
@@ -1425,7 +1701,7 @@ def _generate_satellite_health_viz(check_results: List[Dict]) -> str:
     """
     return viz_html
 
-def _generate_final_report_content(check_results: List[Dict], adcs_subsections: Dict, thermal_html: str, ai_insight_html: str = "") -> str:
+def _generate_final_report_content(check_results: List[Dict], adcs_subsections: Dict, thermal_html: str,obdh_html: str = "", ai_insight_html: str = "") -> str:
     """
     [整星体检完整版] 生成标准化月度体检报告内容。
     新增参数 ai_insight_html: AI 分析卡片的 HTML 代码，默认空字符串。
@@ -1490,7 +1766,10 @@ def _generate_final_report_content(check_results: List[Dict], adcs_subsections: 
     <div style="margin-top: 50px;">
         <h2 style="color:#2d3748; border-bottom: 2px solid #eee; padding-bottom: 10px;">二、 所有指标评估结果</h2>
         {make_subsystem_box("姿轨控分系统", adcs_body)}
-        {make_subsystem_box("星务分系统", "", True)}
+        
+        <!-- 这里填入星务内容 -->
+        {make_subsystem_box("星务分系统", obdh_html, is_empty=(not obdh_html))}
+        
         {make_subsystem_box("综电分系统", "", True)}
         {make_subsystem_box("能源分系统", "", True)}
         {make_subsystem_box("载荷分系统", "", True)}
@@ -1966,6 +2245,22 @@ def run_monthly_analysis(satellite_name: str, year_month: str = None) -> str:
         check_results.extend(sys_res)
         adcs_subs["sys_faults"] = sys_html
 
+        # --- [新增] 星务分系统 (OBDH) ---
+        logger.info("💻 [OBDH] 正在分析计算机复位情况...")
+        obdh_res, obdh_table = _analyze_obdh_resets_impl(satellite_name, m_start, m_end)
+        if obdh_res: check_results.extend(obdh_res)
+        obdh_html = obdh_table
+
+        # 2. 总线错误 
+        bus_res, bus_html = _analyze_obdh_bus_impl(satellite_name, m_start, m_end)
+        if bus_res: check_results.extend(bus_res)
+        obdh_html += bus_html # 拼接到复位表格后面
+
+        # 3. 热控管理
+        therm_res, therm_html = _analyze_obdh_thermal_impl(satellite_name, m_start, m_end)
+        if therm_res: check_results.extend(therm_res)
+        obdh_html += therm_html # 拼接到最后
+
         # --- 4. 热控分析 (1day) ---
         logger.info("🌡️ [Thermal] 分析热变形...")
         _, thermal_html = _analyze_thermal_impl(base_sat_code, d_start, d_end)
@@ -1981,6 +2276,7 @@ def run_monthly_analysis(satellite_name: str, year_month: str = None) -> str:
         _REPORT_CONTEXT["check_results"] = check_results
         _REPORT_CONTEXT["adcs_subs"] = adcs_subs
         _REPORT_CONTEXT["thermal_html"] = thermal_html
+        _REPORT_CONTEXT["obdh_html"] = obdh_html
         _REPORT_CONTEXT["timestamp"] = datetime.now()
 
         # --- 构造返回给 AI 的“诊断单” ---
@@ -2028,6 +2324,8 @@ def generate_final_report(ai_analysis_content: str) -> str:
         results = _REPORT_CONTEXT["check_results"]
         subs = _REPORT_CONTEXT["adcs_subs"]
         therm = _REPORT_CONTEXT["thermal_html"]
+        obdh = _REPORT_CONTEXT["obdh_html"]
+
 
         # 构造 AI 专家诊断卡片 (HTML)
         # 风格调整：白色背景，紫色点缀，符合工程审美
@@ -2101,6 +2399,7 @@ def generate_final_report(ai_analysis_content: str) -> str:
             check_results=results, 
             adcs_subsections=subs, 
             thermal_html=therm,
+            obdh_html=obdh,
             ai_insight_html=ai_insight_html
         )
         
