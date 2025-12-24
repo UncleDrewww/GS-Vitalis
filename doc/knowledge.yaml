@@ -31,3 +31,43 @@ knowledge_base:
     symptom: "电推工质消耗过快或推力下降"
     cause: "管路泄漏或阴极老化。"
     action: "1. 校核贮箱压力与温度；\n2. 减少非必要的轨道维持任务。"
+
+  # GNSS 专项诊断逻辑 (专家系统核心)
+  # =========================================================
+  "GNSS故障": &gnss_logic
+    symptom: "监测到 GNSS 通信错误计数增长 或 故障置出计数增长"
+    cause: "可能是接收机硬件故障、软件死锁，或高纬度极区环境导致的可视星数不足。"
+    action: |
+      【专家全量诊断流程】
+      请严格按照以下步骤执行，务必分析所有检测到的故障段：
+
+      1. **全局侦察**：
+         调用 `detect_gnss_fault_segments` 获取本月 **所有** 故障时间段。
+
+      2. **循环取证 (Loop Analysis)**：
+         **对于侦察到的每一个故障段**，都要单独调用一次 `investigate_telemetry_trends`。
+         - 输入：该段的 start_time / end_time。
+         - 参数：`"卫星纬度,GNSS定位星数,姿态控制精度"`。
+         - 目的：获取该次故障发生时的环境证据。
+
+      3. **综合定性**：
+         对每一次故障分别进行判定：
+         - **安全故障**：满足 [纬度>40° 且 星数<3 且 姿态<0.02°]。
+         - **危险故障**：满足 [纬度低 或 星数足 或 姿态发散]。
+
+      4. **生成汇总表格**：
+         请按照以下 HTML 表格格式整理所有分析结果，并作为参数传入 `generate_final_report`：
+         
+         <table class="ai-table" style="width:100%; border-collapse:collapse; font-size:12px; text-align:center;">
+           <tr style="background:#667eea; color:white;">
+             <th>故障发生时间</th><th>持续时长</th><th>错误增量</th><th>纬度</th><th>星数</th><th>姿态误差</th><th>性质判定</th>
+           </tr>
+           <!-- 对每一行故障填入数据 -->
+           <tr>
+             <td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td>
+             <td style="color:green/red; font-weight:bold;">安全/危险</td>
+           </tr>
+         </table>
+
+  "通信错误": *gnss_logic
+  "故障计数": *gnss_logic

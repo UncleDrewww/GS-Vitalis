@@ -126,6 +126,8 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
         
         # --- 综合 ---
         "姿态":   ["attitude_control"],
+        "姿态误差": ["attitude_control"],
+        "姿态控制精度": ["attitude_control"],
         "控制":   ["attitude_control"],
         "热变形": ["thermal_deformation"],
         "位置":   ["orbit_position"],
@@ -133,7 +135,11 @@ def _get_codes_impl(satellite_name: str, query: str) -> Tuple[Optional[str], Opt
         "LTDN":  ["orbit_ltdn"],
         "降交点": ["orbit_ltdn"],
         "纬度":   ["latitude"],
+        "卫星纬度": ["latitude"],
+        "Lat":    ["latitude"],
+        "定位星数": ["gnss_stars"],
         "星数":   ["gnss_stars"],
+        "GNSS定位星数": ["gnss_stars"],
 
         # --- 故障 ---
         "敏感器错误": ["error_sensors"],
@@ -1715,47 +1721,46 @@ def detect_gnss_fault_segments(satellite_name: str, start_time_str: str = None, 
     except Exception as e:
         return json.dumps({"error": str(e)})
 
-@mcp.tool(description="""[探针] 关联趋势分析工具。
-**用途**：用于验证故障原因。查询指定参数的统计数据并绘图。
-**输入**：请使用 **精确的故障时间段** (fault_start / fault_end) 调用此工具。
-**输出**：
-1. JSON: 包含 mean (平均), max_abs (最大绝对值), start_val (起始值) 等统计指标。
-2. HTML: 包含趋势图 (姿态精度和稳定度分栏绘制，X轴为采样点)。
+@mcp.tool(description="""[调查工具] 针对特定时间段进行多参数关联分析。
+**特点**：保留了完整的数据清洗、时区校正和姿态分量处理逻辑。
+**输入**：精确的 start_time/end_time (建议直接使用 detect 工具返回的时间)。
+**输出**：JSON 格式的统计指标。
 """)
 def investigate_telemetry_trends(satellite_name: str, start_time_str: str, end_time_str: str, queries: str) -> str:
     import json
+    import numpy as np
     
-    # 字体设置
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial'] 
-    plt.rcParams['axes.unicode_minus'] = False
-
     query_list = [q.strip() for q in queries.split(',') if q.strip()]
     sat_code, _ = _get_codes_impl(satellite_name, "任意")
     if not sat_code: return json.dumps({"error": f"未找到卫星 {satellite_name}"})
 
-    # 1. 准备时间窗口
+    # 1. 准备时间窗口 (严格保留原逻辑：外扩 120秒)
     try:
         dt_start = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
         dt_end = datetime.strptime(end_time_str, '%Y-%m-%d %H:%M:%S')
+        # 上下文外扩，用于获取趋势背景，防止切片为空
         ctx_start_str = (dt_start - timedelta(seconds=120)).strftime('%Y-%m-%d %H:%M:%S')
         ctx_end_str = (dt_end + timedelta(seconds=120)).strftime('%Y-%m-%d %H:%M:%S')
     except:
         return json.dumps({"error": "时间格式解析失败"})
 
     ai_stats_summary = {}
-    plot_queue = []
 
     for query_item in query_list:
         _, tm_code = _get_codes_impl(satellite_name, query_item)
-        if not tm_code: continue
+        if not tm_code: 
+            ai_stats_summary[query_item] = "code_not_found"
+            continue
             
-        # A. 获取数据
+        # A. 获取数据 (包含上下文)
         df_plot = _get_data_impl(sat_code, tm_code, ctx_start_str, ctx_end_str)
         if df_plot.empty: 
-            ai_stats_summary[query_item] = "no_data_fetched"
+            ai_stats_summary[query_item] = "no_data"
             continue
 
-        # B. 时间列处理 & 数据列识别
+        # ==============================================================================
+        # B. 数据清洗与时间对齐 (完全保留原逻辑)
+        # ==============================================================================
         t_col_name = None
         # 尝试寻找显式的时间列名
         for col in ["TMKP808", "Time", "time"]:
@@ -1763,34 +1768,26 @@ def investigate_telemetry_trends(satellite_name: str, start_time_str: str, end_t
                 t_col_name = col
                 break
         
-        # --- 【核心修复 1】 智能识别数据列 ---
+        # 智能识别数据列
         if t_col_name:
-            # 如果找到了时间列，数据列就是除了它之外的所有列
             all_data_cols = [c for c in df_plot.columns if c != t_col_name]
-            # 解析时间用于切片
             t_vals = pd.to_numeric(df_plot[t_col_name], errors='coerce')
         else:
-            # 如果没找到时间列 (说明返回的纯数据)，那么所有列都是数据列
-            all_data_cols = df_plot.columns.tolist()
-            # 这种情况下，我们暂时用索引作为假时间，或者尝试用第0列强行解析(风险较大，这里选择放弃时间切片，用全量)
-            # 但为了保持逻辑一致，还是尝试用第0列作为时间参考，如果它看起来像时间戳的话
+            # 兜底逻辑：判断第0列是否像时间戳
             t_vals = pd.to_numeric(df_plot.iloc[:, 0], errors='coerce')
-            # 检查一下第0列是不是时间戳 (比如 > 1980年)
             is_timestamp = False
             if not t_vals.dropna().empty:
                 check_val = t_vals.dropna().iloc[0]
-                if check_val > 1e9: # 粗略判断
-                    is_timestamp = True
+                if check_val > 1e9: is_timestamp = True
             
             if is_timestamp:
-                # 如果第0列看起来像时间，那它就是时间，不作为数据
                 t_col_name = df_plot.columns[0]
                 all_data_cols = df_plot.columns[1:].tolist()
             else:
-                # 否则，第0列也是数据，不要丢弃！
-                t_vals = pd.Series(df_plot.index) # 用索引代替时间
+                all_data_cols = df_plot.columns.tolist()
+                t_vals = pd.Series(df_plot.index)
 
-        # --- 时间对齐逻辑 ---
+        # 时间格式化与时区修正
         try:
             t_series = pd.to_datetime(t_vals, unit='ms', errors='coerce')
             if not t_series.dropna().empty and t_series.dropna().iloc[0].year < 1980:
@@ -1798,148 +1795,96 @@ def investigate_telemetry_trends(satellite_name: str, start_time_str: str, end_t
             
             if t_series.dt.tz is not None: t_series = t_series.dt.tz_localize(None)
             
-            if not t_series.dropna().empty and t_col_name: # 只有真的是时间列才做时区修正
+            # 时区修正 (+8h)
+            if not t_series.dropna().empty and t_col_name: 
                 diff_hours = (dt_start - t_series.dropna().iloc[0]).total_seconds() / 3600
                 if 7 < diff_hours < 9: t_series = t_series + timedelta(hours=8)
         except:
             t_series = pd.Series(df_plot.index)
 
-        # 制作精确切片
+        # 制作精确切片 (只统计故障核心时段的数据)
         mask_exact = (t_series >= dt_start) & (t_series <= dt_end)
         df_stats = df_plot[mask_exact]
-        if df_stats.empty: df_stats = df_plot
+        if df_stats.empty: df_stats = df_plot # 如果切片为空，回退到全量
 
-        # C. 核心处理：统计与绘图
+        # ==============================================================================
+        # C. 核心统计逻辑 (保留姿态分列处理)
+        # ==============================================================================
         
-        # --- 情况 1: 姿态控制 (聚合统计) ---
+        # --- 情况 1: 姿态控制 (7列数据: Time + 3 Angle + 3 Omega) ---
         if "姿态" in query_item or "Attitude" in query_item:
-            # 假设: 如果有6列，前3角度后3角速度；如果有3列，全是角度
             angle_cols = []
             omega_cols = []
             
+            # 根据列数智能拆分
             if len(all_data_cols) >= 6:
-                angle_cols = all_data_cols[:3]
-                omega_cols = all_data_cols[3:6]
+                angle_cols = all_data_cols[:3] # 前3列是角度 (Roll, Pitch, Yaw)
+                omega_cols = all_data_cols[3:6] # 后3列是角速度
             else:
-                angle_cols = all_data_cols # 默认全是角度
+                angle_cols = all_data_cols
             
             stats_obj = {}
             
-            # 1.1 角度 (最大绝对值)
+            # 1.1 角度统计 (关注最大绝对误差)
             if angle_cols:
-                angle_data_stats = df_stats[angle_cols].apply(pd.to_numeric, errors='coerce').dropna()
-                if not angle_data_stats.empty:
-                    max_err = float(angle_data_stats.abs().max().max())
+                angle_data = df_stats[angle_cols].apply(pd.to_numeric, errors='coerce').dropna()
+                if not angle_data.empty:
+                    # 计算所有轴中的最大绝对值
+                    max_err = float(angle_data.abs().max().max())
                     stats_obj["max_abs_error"] = round(max_err, 5)
+                    # 补充均值
+                    stats_obj["mean_angle"] = round(float(angle_data.abs().mean().mean()), 5)
                 else:
-                    stats_obj["max_abs_error"] = "no_data"
+                    stats_obj["max_abs_error"] = "no_valid_data"
 
-                # 绘图
-                angle_series_list = []
-                for col in angle_cols:
-                    s_plot = pd.to_numeric(df_plot[col], errors='coerce').dropna()
-                    if not s_plot.empty:
-                        angle_series_list.append({'label': col, 'values': s_plot.values})
-                if angle_series_list:
-                    plot_queue.append({'title': '姿态控制精度 (角度)', 'series': angle_series_list})
-
-            # 1.2 角速度 (最大3σ)
+            # 1.2 角速度统计 (关注 3-Sigma 稳定度)
             if omega_cols:
-                omega_data_stats = df_stats[omega_cols].apply(pd.to_numeric, errors='coerce').dropna()
-                if not omega_data_stats.empty:
-                    max_stab = float((omega_data_stats.std() * 3).max())
+                omega_data = df_stats[omega_cols].apply(pd.to_numeric, errors='coerce').dropna()
+                if not omega_data.empty:
+                    # 计算最大的 3-Sigma
+                    max_stab = float((omega_data.std() * 3).max())
                     stats_obj["max_stability_3sigma"] = round(max_stab, 6)
                 else:
-                    stats_obj["max_stability_3sigma"] = "no_data"
-
-                # 绘图
-                omega_series_list = []
-                for col in omega_cols:
-                    s_plot = pd.to_numeric(df_plot[col], errors='coerce').dropna()
-                    if not s_plot.empty:
-                        omega_series_list.append({'label': col, 'values': s_plot.values})
-                if omega_series_list:
-                    plot_queue.append({'title': '姿态稳定度 (角速度)', 'series': omega_series_list})
+                    stats_obj["max_stability_3sigma"] = "no_valid_data"
             
             ai_stats_summary[query_item] = stats_obj
 
-        # --- 情况 2: 普通遥测 ---
+        # --- 情况 2: 普通遥测 (纬度、星数、错误计数) ---
         else:
             stats_obj = {}
-            common_series_list = []
-            
             for col in all_data_cols:
-                # 统计
                 s_stat = pd.to_numeric(df_stats[col], errors='coerce').dropna()
                 if not s_stat.empty:
                     val_mean = float(s_stat.mean())
                     val_start = float(s_stat.iloc[0])
+                    val_max = float(s_stat.max())
+                    val_min = float(s_stat.min())
                     
+                    # 根据不同类型返回关键指标
                     if "纬度" in query_item or "Lat" in col:
-                        stats_obj[col] = {"start_val": round(val_start, 4)}
+                        # 纬度既看均值也看起始值
+                        stats_obj[col] = {
+                            "mean": round(val_mean, 4),
+                            "start_val": round(val_start, 4)
+                        }
                     elif "星数" in query_item:
-                        stats_obj[col] = {"mean_val": round(val_mean, 2)}
+                        # 星数看均值和最小值
+                        stats_obj[col] = {
+                            "mean": round(val_mean, 2),
+                            "min": int(val_min)
+                        }
                     elif "错误" in query_item:
-                         stats_obj[col] = {"increase": int(s_stat.iloc[-1] - s_stat.iloc[0])}
+                        # 错误看增量
+                        increase = int(s_stat.iloc[-1] - s_stat.iloc[0])
+                        stats_obj[col] = {"increase": increase}
                     else:
                         stats_obj[col] = {"mean": round(val_mean, 4)}
                 
-                # 绘图
-                s_plot = pd.to_numeric(df_plot[col], errors='coerce').dropna()
-                if not s_plot.empty:
-                    common_series_list.append({'label': col, 'values': s_plot.values})
-            
-            if common_series_list:
-                plot_queue.append({'title': query_item, 'series': common_series_list})
-                
             ai_stats_summary[query_item] = stats_obj
 
-    # 3. 绘图渲染
-    img_base64 = ""
-    if plot_queue:
-        try:
-            num_plots = len(plot_queue)
-            fig, axes = plt.subplots(num_plots, 1, figsize=(10, 3.5 * num_plots), sharex=False)
-            if num_plots == 1: axes = [axes]
-            
-            for i, pdata in enumerate(plot_queue):
-                ax = axes[i]
-                ax.set_title(pdata['title'], fontsize=11, pad=10)
-                ax.grid(True, alpha=0.3)
-                
-                for series in pdata['series']:
-                    y_data = series['values']
-                    x_data = range(len(y_data)) 
-                    ax.plot(x_data, y_data, label=series['label'], linewidth=1)
-                
-                ax.legend(loc='upper right', fontsize=9)
-                if i == num_plots - 1:
-                    ax.set_xlabel("Sampling Points")
-            
-            plt.tight_layout()
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=120)
-            plt.close(fig)
-            buf.seek(0)
-            img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        except Exception as e:
-            print(f"绘图失败: {e}")
-
-    # 4. 生成报告
-    html_report = f"""
-    <div class="section">
-        <h2>关联趋势分析</h2>
-        <p><strong>分析窗口:</strong> {start_time_str} ~ {end_time_str}</p>
-        <p><strong>统计结果 (JSON):</strong></p>
-        <pre style="background:#f4f4f4; padding:10px; font-size:12px;">{json.dumps(ai_stats_summary, indent=2, ensure_ascii=False)}</pre>
-        <div style="text-align:center; margin-top:20px;">
-            {'<img src="data:image/png;base64,' + img_base64 + '" style="max-width:100%; border:1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">' if img_base64 else '<p>无绘图数据</p>'}
-        </div>
-    </div>
-    """
-    
-    _wrap_html_report(html_report, f"{satellite_name} 关联趋势详情")
+    # 返回纯 JSON，不再画图，节省时间
     return json.dumps(ai_stats_summary, ensure_ascii=False)
+
 # ==============================================================================
 # 第三层：聚合工具 (Composite Tool)
 # ==============================================================================
@@ -2057,14 +2002,20 @@ def run_monthly_analysis(satellite_name: str, year_month: str = None) -> str:
     except Exception as e:
         logger.error(f"严重错误: {e}", exc_info=True)
         return f"运行评估时发生错误: {str(e)}"
-    
+
 @mcp.tool(description="""[第二步] 生成最终 HTML 报告并注入 AI 深度分析。
 必须先调用 `run_monthly_analysis` 获取数据。
-参数 ai_analysis_content: 填入大模型基于异常数据生成的综合诊断、成因推断或处置建议。
+参数 ai_analysis_content: 
+请务必使用 **HTML 格式** 编写内容！不要使用 Markdown。
+- 标题使用 <h3>, <h4>
+- 列表使用 <ul>, <li>
+- 重点使用 <b> 或 <span style='color:red'>
+- 表格使用标准的 <table class="ai-table">...</table>
 """)
 def generate_final_report(ai_analysis_content: str) -> str:
     """
-    将缓存数据与 AI 分析结合，生成报告。AI 意见将显示在“重要异常展示”之后。
+    将缓存数据与 AI 分析结合，生成报告。
+    已优化视觉风格：采用清爽的白色卡片风格，去除深色背景。
     """
     global _REPORT_CONTEXT
     
@@ -2078,33 +2029,82 @@ def generate_final_report(ai_analysis_content: str) -> str:
         subs = _REPORT_CONTEXT["adcs_subs"]
         therm = _REPORT_CONTEXT["thermal_html"]
 
-        # 构造 AI 专家诊断卡片 HTML
-        # 增加 margin-bottom: 40px 确保和 Part 2 保持距离
-        formatted_content = ai_analysis_content.replace("\n", "<br>")
+        # 构造 AI 专家诊断卡片 (HTML)
+        # 风格调整：白色背景，紫色点缀，符合工程审美
         ai_insight_html = f"""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; color: white; margin-bottom: 40px; box-shadow: 0 10px 25px rgba(118, 75, 162, 0.4); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -20px; right: -20px; font-size: 150px; opacity: 0.1;">🧠</div>
-            <h2 style="margin-top:0; color:white; display:flex; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px;">
-                <span style="font-size:28px; margin-right:12px;">🤖</span> AI 专家系统 · 综合诊断综述
-            </h2>
-            <div style="background: rgba(255,255,255,0.15); padding: 25px; border-radius: 10px; line-height: 1.8; font-size: 15px; border-left: 5px solid #a3bffa; margin-top: 20px;">
-                {formatted_content}
+        <style>
+            /* AI 卡片容器 */
+            .ai-card {{
+                background: #ffffff;
+                padding: 30px;
+                border-radius: 12px;
+                margin-bottom: 40px;
+                box-shadow: 0 4px 20px rgba(124, 58, 237, 0.08); /* 淡淡的紫色阴影 */
+                border: 1px solid #e9d8fd; /* 浅紫色边框 */
+                border-top: 5px solid #8b5cf6; /* 顶部紫色高亮条 */
+                position: relative;
+                overflow: hidden;
+            }}
+            
+            /* 标题区域 */
+            .ai-header {{
+                display: flex; 
+                align-items: center; 
+                border-bottom: 2px solid #f3f4f6; 
+                padding-bottom: 15px; 
+                margin-bottom: 20px;
+            }}
+            .ai-icon {{ font-size: 24px; margin-right: 12px; }}
+            .ai-title {{ margin: 0; color: #4c1d95; font-size: 20px; font-weight: bold; }}
+            
+            /* 内容区域排版优化 */
+            .ai-content {{ color: #374151; line-height: 1.7; font-size: 15px; }}
+            
+            /* AI 生成内容的特定样式 */
+            .ai-content h3 {{ color: #5b21b6; font-size: 17px; margin-top: 20px; margin-bottom: 10px; border-left: 4px solid #8b5cf6; padding-left: 10px; }}
+            .ai-content h4 {{ color: #4b5563; font-size: 15px; margin-top: 15px; font-weight: bold; }}
+            .ai-content ul {{ margin: 10px 0; padding-left: 20px; }}
+            .ai-content li {{ margin-bottom: 5px; }}
+            
+            /* 表格样式优化 */
+            .ai-table {{ width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }}
+            .ai-table th {{ background: #f5f3ff; color: #5b21b6; border: 1px solid #ddd6fe; padding: 10px; font-weight: bold; }}
+            .ai-table td {{ border: 1px solid #e5e7eb; padding: 8px; text-align: center; color: #4b5563; }}
+            .ai-table tr:nth-child(even) {{ background: #fafafa; }}
+            .ai-table tr:hover {{ background: #fdf4ff; }}
+            
+            /* 底部水印 */
+            .ai-footer {{ margin-top: 20px; font-size: 12px; color: #9ca3af; text-align: right; border-top: 1px dashed #e5e7eb; padding-top: 10px; }}
+        </style>
+
+        <div class="ai-card">
+            <!-- 头部 -->
+            <div class="ai-header">
+                <span class="ai-icon">🤖</span>
+                <h2 class="ai-title">AI 专家系统 · 智能诊断报告</h2>
             </div>
-            <div style="margin-top:15px; font-size:12px; opacity:0.8; text-align:right; font-family: monospace;">
-                Generated by Large Language Model • Based on {len(results)} telemetry metrics
+            
+            <!-- 内容 (由 AI 生成的 HTML 直接嵌入) -->
+            <div class="ai-content">
+                {ai_analysis_content}
+            </div>
+            
+            <!-- 底部 -->
+            <div class="ai-footer">
+                Generated by Deep Reasoning Model • 结合知识库综合研判
             </div>
         </div>
         """
 
-        # 调用生成函数，传入 ai_insight_html
+        # 调用生成函数，传入新的 ai_insight_html
         full_body = _generate_final_report_content(
             check_results=results, 
             adcs_subsections=subs, 
             thermal_html=therm,
-            ai_insight_html=ai_insight_html  # <--- 传入参数
+            ai_insight_html=ai_insight_html
         )
         
-        title = f"{sat_name} 卫星月度体检报告 (AI增强版)"
+        title = f"{sat_name} 卫星月度体检报告"
         msg = _wrap_html_report(full_body, title)
         
         return str(msg) if msg else "报告生成完成。"
