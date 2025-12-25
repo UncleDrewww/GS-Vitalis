@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GS-Vitalis 答辩演示系统</title>
+    <style>
+        :root {
+            --bg-color: #020617; /* 深空蓝黑 */
+            --glass-bg: rgba(30, 41, 59, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6; /* 科技蓝 */
+            --accent: #8b5cf6;  /* 星云紫 */
+            --success: #10b981; /* 状态绿 */
+            --danger: #ef4444;  /* 警告红 */
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            font-family: 'Inter', system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 动态呼吸背景 */
+        .ambient-light {
+            position: absolute;
+            width: 150vw;
+            height: 150vh;
+            background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.08) 0%, rgba(0, 0, 0, 0) 60%);
+            z-index: -1;
+            pointer-events: none;
+            animation: breathe 10s infinite alternate;
+        }
+        @keyframes breathe { from { opacity: 0.5; transform: scale(1); } to { opacity: 1; transform: scale(1.1); } }
+
+        /* 幻灯片缩放容器 (16:9 基准尺寸 1280x720) */
+        #deck-scaler {
+            width: 1280px;
+            height: 720px;
+            position: relative;
+            transform-origin: center center;
+            transition: transform 0.1s;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100%;
+            padding: 50px 70px;
+            box-sizing: border-box;
+            display: none; /* 默认隐藏 */
+            flex-direction: column;
+            position: absolute;
+            top: 0; left: 0;
+            background: rgba(15, 23, 42, 0.6); /* 磨砂玻璃背景 */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .slide.active { display: flex; opacity: 1; transform: scale(1); z-index: 10; }
+
+        /* --- 通用组件样式 --- */
+        .slide-header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            margin-bottom: 30px; border-bottom: 1px solid var(--glass-border); padding-bottom: 20px;
+        }
+        .slide-title { font-size: 38px; font-weight: 800; background: linear-gradient(to right, #fff, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .slide-sub { font-size: 14px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 2px; font-weight: 600; }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        /* --- P1: 封面 --- */
+        .slide-cover { justify-content: center; align-items: center; text-align: center; }
+        .hero-icon { font-size: 80px; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(59,130,246,0.5)); animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .cover-title { font-size: 72px; font-weight: 900; letter-spacing: -2px; margin-bottom: 15px; background: linear-gradient(135deg, #fff 0%, #60a5fa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .cover-desc { font-size: 24px; color: var(--text-sub); font-weight: 300; margin-bottom: 50px; }
+        .cover-meta { display: flex; gap: 40px; padding-top: 30px; border-top: 1px solid var(--glass-border); }
+        .meta-item b { display: block; color: white; font-size: 14px; margin-bottom: 4px; }
+        .meta-item span { font-size: 13px; color: var(--text-sub); }
+
+        /* --- P2: 痛点 --- */
+        .pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; height: 100%; align-items: center; }
+        .pain-chart { position: relative; width: 300px; height: 300px; margin: 0 auto; }
+        .chart-circle { width: 100%; height: 100%; border-radius: 50%; background: conic-gradient(var(--primary) 0% 30%, rgba(255,255,255,0.05) 30% 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 40px rgba(59,130,246,0.15); }
+        .chart-inner { width: 85%; height: 85%; background: var(--bg-color); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .chart-val { font-size: 64px; font-weight: 800; color: var(--primary); }
+        .chart-lbl { font-size: 14px; color: var(--text-sub); }
+        .pain-item { margin-bottom: 30px; padding-left: 20px; border-left: 4px solid var(--danger); }
+        .pain-item h3 { margin: 0 0 8px 0; color: #fca5a5; font-size: 20px; }
+        .pain-item p { margin: 0; color: var(--text-sub); line-height: 1.5; }
+
+        /* --- P3: 技术架构 (重点优化) --- */
+        .arch-container { display: grid; grid-template-columns: 260px 1fr 260px; gap: 20px; height: 420px; }
+        .arch-col { display: flex; flex-direction: column; gap: 15px; }
+        .etl-node { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #6ee7b7; font-size: 13px; }
+        .core-center { background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(0,0,0,0) 70%); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .plugin-item { background: rgba(255,255,255,0.03); border-left: 3px solid #64748b; padding: 10px; font-size: 13px; color: var(--text-sub); transition: all 0.3s;}
+        .plugin-item:hover, .plugin-item.active { background: rgba(59,130,246,0.1); border-left-color: var(--primary); color: white; transform: translateX(5px); }
+
+        /* --- P4: 知识库 --- */
+        .rag-flow { display: flex; align-items: center; justify-content: space-between; height: 350px; }
+        .rag-card { width: 28%; height: 280px; display: flex; flex-direction: column; padding: 25px; box-sizing: border-box; transition: transform 0.3s; }
+        .rag-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); }
+        .rag-arrow { font-size: 30px; color: var(--text-sub); opacity: 0.5; }
+        .code-block { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 10px; flex: 1; overflow: hidden; }
+
+        /* --- P5: 成果 --- */
+        .result-layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; height: 400px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 12px; color: var(--text-sub); border-bottom: 1px solid var(--glass-border); }
+        td { padding: 15px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .st-ok { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+        .st-err { background: rgba(239,68,68,0.2); color: #fca5a5; }
+        .lz04-detail { text-align: center; display: flex; flex-direction: column; justify-content: center; background: linear-gradient(180deg, rgba(16,185,129,0.05) 0%, rgba(16,185,129,0) 100%); border-color: rgba(16,185,129,0.2); }
+
+        /* 底部控制条 */
+        .controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 100; }
+        .dot { width: 8px; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; transition: all 0.3s; }
+        .dot.active { width: 24px; background: var(--primary); }
+
+        /* 全屏提示 */
+        .fullscreen-tip {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8); padding: 20px 40px; border-radius: 12px;
+            text-align: center; z-index: 1000; transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-light"></div>
+
+    <div id="deck-scaler">
+        
+        <!-- P1: 封面 -->
+        <div class="slide slide-cover active">
+            <div class="hero-icon">🛰️</div>
+            <div class="cover-title">GS-Vitalis</div>
+            <div class="cover-desc">在轨数据智能挖掘系统</div>
+                <div class="cover-meta" style="justify-content: center; gap: 50px; border-top: 1px solid rgba(255,255,255,0.15);">
+                    
+                    <!-- 左：团队 -->
+                    <div class="meta-item" style="text-align: left;">
+                        <b style="font-size: 14px; color: #fff; margin-bottom:5px; display:block;">汇报团队</b>
+                        <span style="font-size: 14px; color: #94a3b8;">银河航天 · 姿轨控系统组</span>
+                    </div>
+
+                    <!-- 中：时间 -->
+                    <div class="meta-item" style="text-align: left;">
+                        <b style="font-size: 14px; color: #fff; margin-bottom:5px; display:block;">汇报时间</b>
+                        <span style="font-size: 14px; color: #94a3b8;">2025年12月27日</span>
+                    </div>
+
+                    <!-- 右：AI 署名 (带渐变色特效) -->
+                    <div class="meta-item" style="text-align: left;">
+                        <b style="font-size: 14px; margin-bottom:5px; display:block; background: linear-gradient(90deg, #4b90ff, #ff5546); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                            ✨ 演示系统生成
+                        </b>
+                        <span style="font-size: 14px; color: #94a3b8;">Coded by <strong>Gemini 3 Pro</strong></span>
+                    </div>
+
+                </div>
+        </div>
+
+        <!-- P2: 背景痛点 (复刻优化版) -->
+        <div class="slide" data-id="2">
+            <div class="slide-header">
+                <div class="slide-title">项目背景：在轨数据分析的困境与挑战</div>
+                <div class="slide-sub">Background: Dilemmas & Challenges</div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 280px 1fr 300px; gap: 20px; height: 100%;">
+                
+                <!-- 左侧：数据价值 -->
+                <div class="glass-panel" style="display: flex; flex-direction: column; align-items: center; text-align: center; padding: 30px 20px;">
+                    <div style="font-size: 16px; font-weight: bold; color: #60a5fa; margin-bottom: 30px;">在轨数据可以用来做什么</div>
+                    
+                    <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 20px; width: 100%; margin-bottom: 30px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                        <div style="font-size: 50px; margin-bottom: 10px;">🛰️</div>
+                        <div style="font-size: 48px; font-weight: 800; color: #fff;">1,000+</div>
+                        <div style="font-size: 12px; color: #94a3b8;">单星遥测参数量</div>
+                    </div>
+
+                    <div style="text-align: left; width: 100%; font-size: 14px; color: #cbd5e1; line-height: 2;">
+                        <div>1. 健康状态评估</div>
+                        <div>2. 系统指标验证</div>
+                        <div>3. 故障分析及处置</div>
+                    </div>
+                </div>
+
+                <!-- 中间：层级现状 -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    
+                    <!-- 测运控层 -->
+                    <div class="glass-panel" style="position: relative; flex: 1; display: flex; align-items: flex-start; gap: 15px; border-left: 4px solid #10b981; background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(0,0,0,0) 100%);">
+                        <div style="position: absolute; top: 0; right: 0; background: #065f46; color: #6ee7b7; font-size: 10px; padding: 4px 8px; border-bottom-left-radius: 8px;">测运控层</div>
+                        <div style="font-size: 32px;">🤖</div>
+                        <div>
+                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">定期故障统计</div>
+                            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 5px;">
+                                自动化周报/月报/季报，覆盖各单机、各分系统。
+                            </div>
+                            <div style="font-size: 12px; color: #fca5a5; font-weight: bold;">仅统计、无分析</div>
+                        </div>
+                    </div>
+
+                    <!-- 分系统层 -->
+                    <div class="glass-panel" style="position: relative; flex: 1; display: flex; align-items: flex-start; gap: 15px; border-left: 4px solid #f59e0b; background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, rgba(0,0,0,0) 100%);">
+                        <div style="position: absolute; top: 0; right: 0; background: #78350f; color: #fcd34d; font-size: 10px; padding: 4px 8px; border-bottom-left-radius: 8px;">分系统层</div>
+                        <div style="font-size: 32px;">⚙️</div>
+                        <div>
+                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">深度状态评估</div>
+                            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                                年度评估，包括单机性能、指标验证、机理分析等 <b style="color: #fcd34d;">32项</b>。
+                            </div>
+                            <div style="font-size: 13px; color: #fff;">
+                                2026年预计消耗人力 <b style="color: #ef4444; font-size: 16px;">400天</b>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 系统层 -->
+                    <div class="glass-panel" style="position: relative; flex: 1; display: flex; align-items: flex-start; gap: 15px; border-left: 4px solid #ef4444; background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(0,0,0,0) 100%);">
+                        <div style="position: absolute; top: 0; right: 0; background: #7f1d1d; color: #fca5a5; font-size: 10px; padding: 4px 8px; border-bottom-left-radius: 8px;">系统层</div>
+                        <div style="font-size: 32px;">⚠️</div>
+                        <div>
+                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">异常问题处置</div>
+                            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                                针对安全模式等重大异常的全链路数据关联。
+                            </div>
+                            <div style="font-size: 13px; color: #fff;">
+                                2025年安全模式处理次数 <b style="color: #ef4444; font-size: 16px;">20+</b>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 右侧：挖掘深度 -->
+                <div class="glass-panel" style="background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+                    
+                    <!-- 仪表盘容器 (使用相对定位作为基准) -->
+                    <div style="position: relative; width: 180px; height: 110px; display: flex; justify-content: center; margin-bottom: 10px;">
+                        
+                        <!-- 半圆图表 (上半圆) -->
+                        <div style="width: 180px; height: 90px; overflow: hidden; position: relative; z-index: 1;">
+                             <!-- 蓝色/灰色圆环 -->
+                             <div style="width: 180px; height: 180px; background: conic-gradient(#3b82f6 0% 30%, #334155 30% 100%); border-radius: 50%; transform: rotate(-90deg);"></div>
+                             <!-- 内部遮罩 (模拟空心效果) -->
+                             <!-- 注意：这里背景色设为 var(--bg-color) 确保与大背景融合 -->
+                             <div style="position: absolute; top: 20px; left: 20px; width: 140px; height: 140px; background: #020617; border-radius: 50%;"></div>
+                        </div>
+                        
+                        <!-- 数值文字 (绝对定位，强制在顶层) -->
+                        <div style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 10;">
+                            <div style="font-size: 40px; font-weight: 800; color: #fff; line-height: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">30%</div>
+                        </div>
+                    </div>
+
+                    <!-- 图例 -->
+                    <div style="font-size: 10px; display: flex; gap: 15px; justify-content: center; margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span style="width: 8px; height: 8px; background: #3b82f6; border-radius: 2px;"></span>
+                            <span style="color: #cbd5e1;">已挖掘</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span style="width: 8px; height: 8px; background: #334155; border-radius: 2px;"></span>
+                            <span style="color: #64748b;">流失</span>
+                        </div>
+                    </div>
+
+                    <!-- 痛点标题 -->
+                    <div style="font-size: 18px; font-weight: bold; color: #ef4444; margin-bottom: 15px; letter-spacing: 1px;">数据挖掘深度不足</div>
+
+                    <!-- 描述文字 -->
+                    <div style="font-size: 12px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; text-align: justify; padding: 0 10px;">
+                        尽管我们拥有海量遥测，但受限于“全人工操作”的瓶颈，目前仅能完成基础统计和被动响应。
+                    </div>
+
+                    <!-- 底部警告框 -->
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px dashed rgba(239, 68, 68, 0.4); padding: 12px 15px; border-radius: 8px; font-size: 12px; color: #fca5a5; line-height: 1.5; text-align: center; width: 90%;">
+                        大量故障线索被迫搁置<br>高价值人力被低效损耗
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+       <!-- P3: 目标 (图片Logo版) -->
+        <div class="slide" data-id="3">
+            <div class="slide-header">
+                <div class="slide-title">项目目标：卫星的私人医生</div>
+                <div class="slide-sub">Project Goal: Satellite's Private Doctor</div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 320px 1fr; gap: 50px; height: 100%; align-items: center;">
+                
+                <!-- 左侧：品牌形象 -->
+                <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    
+                    <!-- Logo 图片容器 -->
+                    <div style="position: relative; width: 220px; height: 200px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                        <!-- 呼吸光晕背景 -->
+                        <div style="position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(0,0,0,0) 70%); animation: heartbeat 3s infinite ease-in-out;"></div>
+                        
+                        <!-- ★★★ 这里引用你的图片 ★★★ -->
+                        <!-- 请确保 logo.png 在同一目录下，或者修改 src 为实际路径 -->
+                        <img src="logo.png" alt="GS-Vitalis Logo" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(59,130,246,0.5)); z-index: 2; animation: floatLogo 4s ease-in-out infinite;">
+                    </div>
+                    
+                    <!-- 文字 Slogan -->
+                    <div style="font-size: 32px; font-weight: 800; color: #3b82f6; margin-bottom: 10px; letter-spacing: 1px;">GS-Vitalis</div>
+                    
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 25px;">
+                        <span style="color: #10b981;">全天候</span> · 
+                        <span style="color: #3b82f6;">智能化</span> · 
+                        <span style="color: #8b5cf6;">主动式</span>
+                    </div>
+                    
+                    <div style="font-size: 14px; color: #94a3b8; line-height: 1.8;">
+                        不是冰冷的数据系统<br>
+                        而是每一颗在轨卫星的<br>
+                        <b style="color: #fff; font-size: 16px;">专属健康守护专家</b>
+                    </div>
+                </div>
+
+                <!-- 右侧：两大核心功能 (保持不变) -->
+                <div style="display: flex; flex-direction: column; gap: 25px; justify-content: center;">
+                    
+                    <!-- 卡片 1：全自动体检 -->
+                    <div class="glass-panel" style="padding: 25px 30px; display: flex; gap: 25px; align-items: flex-start; border-left: 4px solid #10b981; background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, rgba(15, 23, 42, 0.4) 100%); transition: transform 0.3s;">
+                        <div style="min-width: 60px; height: 60px; background: rgba(16, 185, 129, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 30px;">📄</div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 10px;">全自动深度体检</div>
+                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 15px;">
+                                替代人工，定期对卫星进行全方位的“身体检查”。深度挖掘单机性能退化趋势，自动生成权威的健康诊断报告。
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">性能评估</span>
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">寿命预测</span>
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">自动报告</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 卡片 2：专家辅助 -->
+                    <div class="glass-panel" style="padding: 25px 30px; display: flex; gap: 25px; align-items: flex-start; border-left: 4px solid #3b82f6; background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(15, 23, 42, 0.4) 100%); transition: transform 0.3s;">
+                        <div style="min-width: 60px; height: 60px; background: rgba(59, 130, 246, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 30px;">🧠</div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 10px;">伴随式专家辅助</div>
+                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 15px;">
+                                内嵌姿轨控专家知识库。当发生异常（如安全模式）时，能基于先验经验快速关联数据，提供专业的处置参考意见。
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">知识图谱</span>
+                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">归因分析</span>
+                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">决策建议</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            
+            <style>
+                @keyframes heartbeat {
+                    0% { transform: scale(0.95); opacity: 0.3; }
+                    50% { transform: scale(1.1); opacity: 0.6; }
+                    100% { transform: scale(0.95); opacity: 0.3; }
+                }
+                @keyframes floatLogo {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-8px); }
+                }
+            </style>
+        </div>
+
+<!-- P4: 技术路线 (最终修正填充版) -->
+        <div class="slide" data-id="4">
+            <div class="slide-header" style="margin-bottom: 25px; border-bottom: none;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #93c5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    技术路线：基于MCP的计算架构
+                </div>
+                <div class="slide-sub" style="font-size: 14px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+                    Technical Route: MCP-Based Architecture & Data Assets
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 28% 42% 26%; gap: 25px; height: 500px; align-items: stretch;">
+                
+                <!-- 1. 配置文件标准化 (Input) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #10b981; background: rgba(16,185,129,0.02);">
+                    <div style="padding: 12px; background: rgba(16,185,129,0.1); border-bottom: 1px solid rgba(16,185,129,0.2); font-weight: bold; font-size: 15px; color: #6ee7b7; text-align: center;">
+                        1. 配置文件标准化
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 15px;">
+                        <!-- Excel -->
+                        <div style="background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 36px; height: 36px; background: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #15803d;">X</div>
+                            <div>
+                                <div style="font-size: 13px; color: #fff; font-weight:bold;">LZ04遥测包配置.xlsx</div>
+                                <div style="font-size: 11px; color: #94a3b8;">原始非标文件</div>
+                            </div>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div style="text-align: center; font-size: 24px; color: #10b981; animation: bounce 2s infinite;">⬇</div>
+
+                        <!-- YAML Code (超量填充版) -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #10b981; border-radius: 8px; padding: 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; color: #d4d4d4; box-shadow: 0 4px 15px rgba(16,185,129,0.15); position: relative; overflow: hidden;">
+                            <span style="color: #c586c0;">satellites:</span><br>
+                            &nbsp;&nbsp;<span style="color: #4ec9b0;">LZ04:</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">telemetry:</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6a9955;"># --- AOCS ---</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">gyro_code:</span> <span style="color: #ce9178;">"TMKP608,TMKP609"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">star_code:</span> <span style="color: #ce9178;">"TMKP808,TMKP809"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">wheel_sp:</span> <span style="color: #ce9178;">"TMKQ107,TMKQ108"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6a9955;"># --- OBDH ---</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">bus_errs:</span> <span style="color: #ce9178;">"TMH2003,TMH2004"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">cpu_rsts:</span> <span style="color: #ce9178;">"TMHC012,TMHC016"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6a9955;"># --- EPS ---</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">bat_temp:</span> <span style="color: #ce9178;">"TMK4308,TMK4309"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">sa_curnt:</span> <span style="color: #ce9178;">"TMK2101,TMK2102"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">pcd_stat:</span> <span style="color: #ce9178;">"TMK5005,TMK5006"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6a9955;"># --- THERMAL ---</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">heat_act:</span> <span style="color: #ce9178;">"TMH3001,TMH3002"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">th_sensr:</span> <span style="color: #ce9178;">"TMH3020,TMH3021"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6a9955;"># --- PAYLOAD ---</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #9cdcfe;">cam_stat:</span> <span style="color: #ce9178;">"TMP1001,TMP1002"</span>
+                            
+                            <!-- Scan Effect -->
+                            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #10b981; box-shadow: 0 0 8px #10b981; animation: scan 3s infinite;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 智能体工具链 (Core Flow) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(59,130,246,0.02);">
+                    <div style="padding: 12px; background: rgba(59,130,246,0.1); border-bottom: 1px solid rgba(59,130,246,0.2); font-weight: bold; font-size: 15px; color: #93c5fd; text-align: center;">
+                        2. 智能体工具链
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 12px; justify-content: flex-start;">
+                        
+                        <!-- Step 1: Atomic Tools -->
+                        <div class="step-box" style="border-left: 3px solid #3b82f6;">
+                            <div class="step-header" style="color: #93c5fd; font-size: 13px;">
+                                <span class="step-num">01</span> 原子工具层 (Atomic Tools)
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                                <div class="atom-tag">📡 姿轨控</div>
+                                <div class="atom-tag">⚡ 能源</div>
+                                <div class="atom-tag">💻 星务</div>
+                                <div class="atom-tag dashed">+ 扩展位</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow">⬇</div>
+
+                        <!-- Step 2: Aggregator -->
+                        <div class="step-box" style="border-left: 3px solid #f59e0b;">
+                            <div class="step-header" style="color: #fcd34d; font-size: 13px;">
+                                <span class="step-num" style="background: #f59e0b; color: #000;">02</span> 聚合工具层 (Aggregator)
+                            </div>
+                            <div style="font-size: 12px; color: #e2e8f0; margin-top: 4px;">
+                                连续调用原子工具 ➔ 数据清洗 ➔ 异常初筛
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow">⬇</div>
+
+                        <!-- Step 3: LLM Reasoning -->
+                        <div class="step-box active" style="background: rgba(139,92,246,0.15); border: 1px solid #8b5cf6;">
+                            <div class="step-header" style="color: #fff; font-size: 14px;">
+                                <span class="step-num" style="background: #8b5cf6;">03</span> LLM 决策层 (Reasoning)
+                            </div>
+                            <div style="font-size: 12px; color: #e2e8f0; margin-top: 5px; line-height: 1.4;">
+                                <span style="font-size: 16px; margin-right: 5px;">🧠</span> 结合 <b>专家知识库</b> 进行推理<br>
+                                <span style="color: #a78bfa; font-style: italic;">"判据：高纬+少星 = 安全故障"</span>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow">⬇</div>
+
+                        <!-- Step 4: Rendering -->
+                        <div class="step-box" style="border-left: 3px solid #10b981;">
+                            <div class="step-header" style="color: #6ee7b7; font-size: 13px;">
+                                <span class="step-num" style="background: #10b981; color: #000;">04</span> 报告生成层 (Rendering)
+                            </div>
+                            <div style="font-size: 12px; color: #e2e8f0; margin-top: 4px;">
+                                格式渲染 (HTML/CSS) ➔ 图表嵌入
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 3. 体检报告管理 (Tree View) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #8b5cf6; background: rgba(139,92,246,0.02);">
+                    <div style="padding: 12px; background: rgba(139,92,246,0.1); border-bottom: 1px solid rgba(139,92,246,0.2); font-weight: bold; font-size: 15px; color: #c4b5fd; text-align: center;">
+                        3. 体检报告管理与回溯
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; position: relative;">
+                        
+                        <!-- 文件夹层级树 -->
+                        <div style="flex: 1; overflow-y: auto; padding-right: 5px;">
+                            
+                            <!-- Tree Items -->
+                            <div class="tree-item"><span class="icon">📁</span> GS-1a</div>
+                            <div class="tree-item"><span class="icon">📁</span> GS-2a</div>
+                            <div class="tree-item"><span class="icon">📁</span> Noah</div>
+
+                            <!-- Expanded -->
+                            <div class="tree-item active">
+                                <span class="icon">📂</span> <span style="color: #fff; font-weight: bold;">LZ04</span>
+                            </div>
+                            <div class="tree-children">
+                                <div class="file-item">
+                                    <span class="icon">📄</span> 2025-11_Report.html <span class="tag new">NEW</span>
+                                </div>
+                                <div class="file-item"><span class="icon">📄</span> 2025-10_Report.html</div>
+                                <div class="file-item"><span class="icon">📄</span> 2025-09_Report.html</div>
+                                <div class="file-item"><span class="icon">📄</span> 2025-08_Report.html</div>
+                            </div>
+
+                            <div class="tree-item"><span class="icon">📁</span> AS02</div>
+                            <div class="tree-item"><span class="icon">📁</span> AS03</div>
+                        </div>
+
+                        <!-- 功能文字描述 -->
+                        <div style="margin-top: 15px; background: rgba(139,92,246,0.1); border: 1px dashed #8b5cf6; border-radius: 8px; padding: 12px;">
+                            <div style="font-size: 12px; color: #c4b5fd; font-weight: bold; margin-bottom: 5px;">
+                                🔄 历史回溯与指标对比
+                            </div>
+                            <div style="font-size: 11px; color: #cbd5e1; line-height: 1.5; text-align: justify;">
+                                系统自动归档所有历史报告。在生成新月报时，能够<b>自动调取</b>上述历史文件中的关键指标（如摩擦力矩、衰减率），进行<b>同环比分析</b>，精准识别性能退化趋势。
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Styles -->
+            <style>
+                @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+                @keyframes scan { 0% { top: 0; opacity: 0; } 20% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+                
+                .step-box {
+                    background: rgba(30, 41, 59, 0.6); 
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 6px; padding: 10px;
+                    transition: transform 0.2s;
+                }
+                .step-box.active {
+                    transform: scale(1.02);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                }
+                .step-header { font-weight: bold; display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+                .step-num { 
+                    font-size: 10px; background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; 
+                }
+                
+                .atom-tag {
+                    background: rgba(255,255,255,0.1); 
+                    color: #fff; 
+                    font-size: 12px; 
+                    padding: 6px; 
+                    text-align: center; 
+                    border-radius: 4px;
+                }
+                .atom-tag.dashed { border: 1px dashed #64748b; color: #94a3b8; background: transparent; }
+                
+                .flow-arrow { text-align: center; color: #64748b; font-size: 16px; margin: -5px 0; }
+                
+                /* Tree View Styles */
+                .tree-item {
+                    padding: 6px 8px; font-size: 13px; color: #94a3b8; display: flex; align-items: center; gap: 8px;
+                    border-radius: 4px; cursor: default;
+                }
+                .tree-item:hover { background: rgba(255,255,255,0.05); }
+                .tree-item.active { background: rgba(139, 92, 246, 0.2); color: #fff; }
+                
+                .tree-children {
+                    margin-left: 22px; padding-left: 10px; 
+                    border-left: 1px solid rgba(255,255,255,0.1);
+                    margin-bottom: 5px; margin-top: 2px;
+                }
+                
+                .file-item {
+                    padding: 4px 8px; font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 6px;
+                }
+                .file-item:first-child { color: #fff; font-weight: bold; } /* Highlight newest */
+                
+                .tag.new { 
+                    font-size: 9px; background: #3b82f6; color: white; padding: 1px 4px; border-radius: 2px; margin-left: auto;
+                }
+                .icon { opacity: 0.7; }
+            </style>
+        </div>
+
+<!-- P5: 知识库建立 (居中修正版) -->
+        <div class="slide" data-id="5">
+            <div class="slide-header" style="flex-shrink: 0;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #fcd34d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    技术路线：银河航天卫星诊断宝典
+                </div>
+                <div class="slide-sub" style="font-size: 14px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+                    Transforming Unstructured Data into AI Wisdom
+                </div>
+            </div>
+            
+            <!-- 核心修改：flex:1 和 margin: auto 0 实现垂直自动居中；grid-template-columns 使用 fr 单位撑满宽度 -->
+            <div style="display: grid; grid-template-columns: 1fr 1.6fr 1.4fr; gap: 25px; height: 500px; width: 100%; margin: auto 0; align-items: stretch;">
+                
+                <!-- 1. 原始非结构化数据 (Left) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #ef4444; background: rgba(239, 68, 68, 0.02);">
+                    <div style="padding: 12px; background: rgba(239, 68, 68, 0.1); border-bottom: 1px solid rgba(239, 68, 68, 0.2); font-weight: bold; font-size: 16px; color: #fca5a5; text-align: center;">
+                        1. 原始非结构化数据
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
+                        
+                        <!-- Redmine Big Card -->
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #ef4444; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 32px; font-weight: 800; color: #fff;">500+</div>
+                                <div style="font-size: 12px; color: #fca5a5;">Redmine 问题单</div>
+                            </div>
+                            <div style="font-size: 24px;">🐞</div>
+                        </div>
+
+                        <!-- On-orbit Big Card -->
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #f97316; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 32px; font-weight: 800; color: #fff;">100+</div>
+                                <div style="font-size: 12px; color: #fdba74;">在轨典型故障</div>
+                            </div>
+                            <div style="font-size: 24px;">🛰️</div>
+                        </div>
+
+                        <!-- Pain Points List -->
+                        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed #666; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                            <div style="color: #cbd5e1; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 5px;">
+                                ⚠️ 核心痛点
+                            </div>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #94a3b8; line-height: 1.8;">
+                                <li>内容缺失，描述模糊</li>
+                                <li>非结构化，难以检索</li>
+                                <li>经验随人员流失</li>
+                            </ul>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 2. AI 知识提炼引擎 (Middle) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(59,130,246,0.02);">
+                    <div style="padding: 12px; background: rgba(59,130,246,0.1); border-bottom: 1px solid rgba(59,130,246,0.2); font-weight: bold; font-size: 16px; color: #93c5fd; text-align: center;">
+                        2. AI 知识提炼引擎 (MCP)
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: flex-start; gap: 15px;">
+                        
+                        <!-- 分系统图标展示 -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <div class="sys-badge"><span class="icon">🛰️</span> 姿轨控</div>
+                            <div class="sys-badge"><span class="icon">⚡</span> 能源</div>
+                            <div class="sys-badge"><span class="icon">💻</span> 星务</div>
+                            <div class="sys-badge"><span class="icon">🌡️</span> 热控</div>
+                        </div>
+
+                        <!-- 5步流水线 (垂直填充) -->
+                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-top: 5px;">
+                            
+                            <!-- Step 1 -->
+                            <div class="pipe-row">
+                                <div class="p-step">01</div>
+                                <div class="p-content">
+                                    <div class="p-title">检索历史案例 (Retrieval)</div>
+                                    <div class="p-desc">全库扫描，关键词匹配</div>
+                                </div>
+                            </div>
+                            <div class="pipe-arrow">⬇</div>
+
+                            <!-- Step 2 -->
+                            <div class="pipe-row">
+                                <div class="p-step">02</div>
+                                <div class="p-content">
+                                    <div class="p-title">关键参数补全 (Completion)</div>
+                                    <div class="p-desc">自动提取代号，填充缺失值</div>
+                                </div>
+                            </div>
+                            <div class="pipe-arrow">⬇</div>
+
+                            <!-- Step 3 -->
+                            <div class="pipe-row">
+                                <div class="p-step">03</div>
+                                <div class="p-content">
+                                    <div class="p-title">故障机理推理 (Reasoning)</div>
+                                    <div class="p-desc">基于物理模型与工程经验</div>
+                                </div>
+                            </div>
+                            <div class="pipe-arrow">⬇</div>
+
+                            <!-- Step 4 -->
+                            <div class="pipe-row">
+                                <div class="p-step">04</div>
+                                <div class="p-content">
+                                    <div class="p-title">生成标准化判据 (Criteria)</div>
+                                    <div class="p-desc">量化阈值 (如 &gt;40°)</div>
+                                </div>
+                            </div>
+                            <div class="pipe-arrow">⬇</div>
+
+                            <!-- Step 5 (Highlight) -->
+                            <div class="pipe-row active">
+                                <div class="p-step">05</div>
+                                <div class="p-content">
+                                    <div class="p-title">总结处置措施 (Action)</div>
+                                    <div class="p-desc">生成 SOP 标准操作流程</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 结构化诊断宝典 (Right) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #f59e0b; background: rgba(245,158,11,0.02);">
+                    <div style="padding: 12px; background: rgba(245,158,11,0.1); border-bottom: 1px solid rgba(245,158,11,0.2); font-weight: bold; font-size: 16px; color: #fcd34d; text-align: center;">
+                        3. 结构化知识库 (样例)
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; overflow: hidden;">
+                        
+                        <!-- 知识卡片 -->
+                        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #f59e0b; border-radius: 10px; padding: 15px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;">
+                            
+                            <!-- Header -->
+                            <div style="font-size: 14px; font-weight: bold; color: #fcd34d; padding-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.2); line-height: 1.4;">
+                                📖 案例：帆板展开期间陀螺异常重启
+                            </div>
+
+                            <!-- 1. 侦察 -->
+                            <div class="kb-section">
+                                <div class="kb-title">🔍 1. 故障侦察</div>
+                                <div class="kb-text">调用原子工具 <code>gyro_fault_detector</code> 锁定故障起止时间。</div>
+                            </div>
+
+                            <!-- 2. 调查 -->
+                            <div class="kb-section">
+                                <div class="kb-title">📊 2. 关联调查</div>
+                                <div class="kb-text">
+                                    查询关键遥测：<br>
+                                    - 角速度 (<code>angular_velocity</code>)<br>
+                                    - 姿态影响标志 (<code>stability_flag</code>)
+                                </div>
+                            </div>
+
+                            <!-- 3. 推理 -->
+                            <div class="kb-section highlight">
+                                <div class="kb-title">🧠 3. 专家推理判据</div>
+                                <div class="kb-text">
+                                    <div style="margin-bottom: 4px;">
+                                        <span style="color:#4ade80; font-weight:bold;">🟢 安全故障 (Safe)</span><br>
+                                        ① 角速度震荡 ≤ 10°/s<br>
+                                        ② 姿态安全标志 = 0
+                                    </div>
+                                    <div>
+                                        <span style="color:#f87171; font-weight:bold;">🔴 危险故障 (Risk)</span><br>
+                                        ① 角速度 > 15°/s 或 ② 标志触发
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 4. 处置 -->
+                            <div class="kb-section">
+                                <div class="kb-title">🛡️ 4. 处置措施</div>
+                                <div class="kb-text">
+                                    1. 持续监测数据恢复情况。<br>
+                                    2. 若未恢复，切备份陀螺。<br>
+                                    3. 建议后续设计取消展开段诊断。
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Styles -->
+            <style>
+                /* 分系统图标 */
+                .sys-badge {
+                    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+                    color: #e2e8f0; font-size: 12px; padding: 8px; text-align: center; border-radius: 6px;
+                    display: flex; align-items: center; justify-content: center; gap: 6px;
+                }
+                .sys-badge .icon { font-size: 16px; }
+
+                /* 流程条 */
+                .pipe-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+                .p-step {
+                    width: 22px; height: 22px; background: rgba(59,130,246,0.2); 
+                    border: 1px solid #3b82f6; border-radius: 50%; color: #93c5fd;
+                    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;
+                }
+                .pipe-row.active .p-step { background: #3b82f6; color: white; box-shadow: 0 0 10px #3b82f6; }
+                
+                .p-title { font-size: 13px; font-weight: bold; color: #e2e8f0; }
+                .p-desc { font-size: 11px; color: #94a3b8; }
+                
+                .pipe-arrow { margin-left: 8px; color: #64748b; font-size: 12px; line-height: 0.5; }
+
+                /* 知识卡片 */
+                .kb-section { margin-bottom: 8px; }
+                .kb-section.highlight { background: rgba(245,158,11,0.1); padding: 6px; border-radius: 4px; border: 1px solid rgba(245,158,11,0.3); }
+                .kb-title { font-size: 13px; color: #cbd5e1; font-weight: bold; margin-bottom: 3px; }
+                .kb-text { font-size: 12px; color: #94a3b8; line-height: 1.4; }
+                
+                /* 通用覆盖 */
+                .slide-title { white-space: nowrap; }
+            </style>
+        </div>
+
+<!-- P6: 成果展示 (紧凑防溢出版) -->
+        <div class="slide" data-id="6">
+            <div class="slide-header" style="margin-bottom: 15px; border-bottom: none;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    项目成果：卫星专属“体检报告”
+                </div>
+                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 2px;">
+                    Satellite Health Examination
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; height: 480px; align-items: stretch;">
+                
+                <!-- 左侧：星座群概览 (紧凑表格) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(59,130,246,0.02);">
+                    
+                    <!-- 表头统计 -->
+                    <div style="padding: 10px 15px; background: rgba(59,130,246,0.15); border-bottom: 1px solid rgba(59,130,246,0.2); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #fff;">2025 在轨卫星群健康概览</div>
+                        <div style="font-size: 12px; color: #cbd5e1;">
+                            总数：<b style="color:#fff;">7</b> 颗 | <span style="color:#f59e0b;">异常：6 颗</span>
+                        </div>
+                    </div>
+
+                    <!-- 表格区域 -->
+                    <div style="flex: 1; padding: 10px; overflow: hidden;">
+                        <table style="width: 100%; border-collapse: separate; border-spacing: 0 4px;">
+                            <thead>
+                                <tr style="font-size: 14px; color: #94a3b8; text-align: left;">
+                                    <th style="padding: 5px 10px;">卫星名称</th>
+                                    <th>总项</th>
+                                    <th>异常</th>
+                                    <th>重要异常</th>
+                                    <th>关键诊断结论</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size: 14px;">
+                                <!-- GS-1a -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#cbd5e1;">GS-1a</td>
+                                    <td>62</td>
+                                    <td>15</td>
+                                    <td style="color:#ef4444; font-weight:bold;">2</td>
+                                    <td style="font-size: 12px;"><span class="badge red">超差</span> 飞轮转速精度</td>
+                                </tr>
+                                <!-- GS-2 -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#cbd5e1;">GS-2</td>
+                                    <td>60</td>
+                                    <td>13</td>
+                                    <td style="color:#ef4444; font-weight:bold;">1</td>
+                                    <td style="font-size: 12px;"><span class="badge red">超差</span> 姿态稳定度</td>
+                                </tr>
+                                <!-- GS-BP02 -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#cbd5e1;">GS-BP02</td>
+                                    <td>61</td>
+                                    <td>16</td>
+                                    <td style="color:#ef4444; font-weight:bold;">1</td>
+                                    <td style="font-size: 12px;"><span class="badge red">超差</span> 姿态稳定度</td>
+                                </tr>
+                                <!-- AS-Infra -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#cbd5e1;">AS-Infra</td>
+                                    <td>58</td>
+                                    <td>9</td>
+                                    <td style="color:#ef4444; font-weight:bold;">2</td>
+                                    <td style="font-size: 12px;"><span class="badge red">复位</span> 频繁复位(15次)</td>
+                                </tr>
+                                <!-- AS-Vast -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#cbd5e1;">AS-Vast</td>
+                                    <td>60</td>
+                                    <td>10</td>
+                                    <td style="color:#ef4444; font-weight:bold;">1</td>
+                                    <td style="font-size: 12px;"><span class="badge red">超差</span> 飞轮A精度</td>
+                                </tr>
+                                <!-- Noah -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#cbd5e1;">Noah</td>
+                                    <td>63</td>
+                                    <td>10</td>
+                                    <td style="color:#ef4444; font-weight:bold;">1</td>
+                                    <td style="font-size: 12px;"><span class="badge red">超差</span> 轨道高度偏低</td>
+                                </tr>
+                                <!-- LZ04 -->
+                                <tr class="table-row">
+                                    <td style="padding: 8px 10px; font-weight:bold; color:#fff;">LZ04</td>
+                                    <td>64</td>
+                                    <td>8</td>
+                                    <td style="color:#0bf570; font-weight:bold;">0</td>
+                                    <td style="font-size: 12px;"><span class="badge green">健康</span> 各项关键指标均符合预期</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 右侧：LZ04 单星详情 (布局优化版) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #10b981; background: rgba(16,185,129,0.02); position: relative;">
+                    
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column;">
+                        
+                        <!-- 头部评分 -->
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                            <div style="position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+                                <svg viewBox="0 0 36 36" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#334155" stroke-width="3" />
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" stroke-width="3" stroke-dasharray="85, 100" />
+                                </svg>
+                                <div style="position: absolute; font-size: 24px; font-weight: bold; color: #10b981;">85</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 4px;">
+                                    灵知04卫星 <span style="background: rgba(245, 158, 11, 0.2); color: #0bf570; font-size: 12px; padding: 1px 6px; border-radius: 4px; vertical-align: middle; border: 1px solid rgba(245, 158, 11, 0.4);">健康</span>
+                                </div>
+                                <div style="font-size: 12px; color: #94a3b8;">诊断周期：2025-01 ~ 2025-11</div>
+                            </div>
+                        </div>
+
+                        <!-- 统计卡片 -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <div style="flex: 1; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 6px; padding: 10px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #93c5fd;">64</div>
+                                <div style="font-size: 11px; color: #64748b;">总测试项</div>
+                            </div>
+                            <div style="flex: 1; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 10px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #fca5a5;">8</div>
+                                <div style="font-size: 11px; color: #64748b;">异常/预警</div>
+                            </div>
+                        </div>
+
+                        <!-- 异常列表 (紧凑模式: 可容纳更多) -->
+                        <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">诊断详情 (Risk Details)</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div class="err-row new"><b>[磁强计A]</b> 通信错误 +199</div>
+                                <div class="err-row new"><b>[磁强计B]</b> 通信错误 +198</div>
+                                <div class="err-row new"><b>[星敏B]</b> 通信错误 +4</div>
+                                <div class="err-row new"><b>[GNSS]</b> 通信错误 +15795</div>
+                                <div class="err-row new"><b>[GNSS故障]</b> +45</div>
+                                <div class="err-row new"><b>[星敏A]</b> 星敏A: Y轴(7.15")</div>
+                                <div class="err-row new"><b>[星敏B]</b> 星敏B: Y轴(7.24")</div>
+                                <div class="err-row new"><b>[错误日志计数]</b> 错误日志新增 154 条</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Styles -->
+            <style>
+                /* 左侧表格微调 */
+                .table-row { background: rgba(255,255,255,0.03); transition: transform 0.2s; }
+                .table-row.active { background: rgba(16,185,129,0.15); border-left: 4px solid #10b981; }
+                
+                .badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: bold; margin-right: 3px; }
+                .badge.red { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+                .badge.green { background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+                .badge.yellow { background: rgba(245,158,11,0.2); color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+
+                /* 右侧异常行 - 紧凑 */
+                .err-row {
+                    background: rgba(239,68,68,0.1); border-left: 3px solid #ef4444;
+                    padding: 6px 10px; border-radius: 4px;
+                    font-size: 12px; color: #fecaca;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                }
+                .err-row.new { border-left-color: #f59e0b; background: rgba(245,158,11,0.1); color: #fde68a; }
+                .err-row b { color: #fff; margin-right: 5px; opacity: 0.9; }
+            </style>
+        </div>
+<!-- P7: AI 专家诊断报告 (详细版) -->
+        <div class="slide" data-id="7">
+            <div class="slide-header" style="margin-bottom: 20px; border-bottom: none;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    项目成果：专家级归因与处置建议
+                </div>
+                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+                    Deep Analysis
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 25px; height: 500px; align-items: stretch;">
+                
+                <!-- 左侧：深度分析详情 (Evidence) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(59,130,246,0.02);">
+                    <div style="padding: 12px 20px; background: rgba(59,130,246,0.1); border-bottom: 1px solid rgba(59,130,246,0.2); font-weight: bold; font-size: 15px; color: #93c5fd; display: flex; justify-content: space-between;">
+                        <span>🔍 故障深度关联分析</span>
+                        <span style="font-size: 12px; color: #cbd5e1;">LZ04卫星 (2025-11)</span>
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; overflow: hidden;">
+                        
+                        <!-- 1. GNSS 表格 (核心展示) -->
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-size: 13px; color: #fff; font-weight: bold; margin-bottom: 8px; border-left: 3px solid #3b82f6; padding-left: 8px;">
+                                1. GNSS 通信故障定性分析 (11次)
+                            </div>
+                            <div style="height: 180px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                                    <thead style="position: sticky; top: 0; background: #1e293b;">
+                                        <tr>
+                                            <th style="padding:6px; color:#94a3b8;">时间</th>
+                                            <th style="color:#94a3b8;">增量</th>
+                                            <th style="color:#94a3b8;">纬度</th>
+                                            <th style="color:#94a3b8;">星数</th>
+                                            <th style="color:#94a3b8;">姿态误差</th>
+                                            <th style="color:#94a3b8;">AI判定</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- 安全故障示例 -->
+                                        <tr class="safe-row"><td>11-25 05:07</td><td>91</td><td>60.8°</td><td>2.6</td><td>0.0247</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <tr class="safe-row"><td>11-26 04:50</td><td>346</td><td>64.1°</td><td>1.7</td><td>0.0346</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <tr class="safe-row"><td>11-27 04:35</td><td>362</td><td>65.7°</td><td>1.2</td><td>0.0164</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <!-- 危险故障示例 -->
+                                        <tr class="danger-row"><td>11-27 16:01</td><td>7</td><td>43.0°</td><td>2.8</td><td>0.0260</td><td><span class="status-tag danger">危险</span></td></tr>
+                                        
+                                        <tr class="safe-row"><td>11-28 04:18</td><td>261</td><td>62.7°</td><td>2.4</td><td>0.0082</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <tr class="safe-row"><td>11-28 15:42</td><td>42</td><td>51.1°</td><td>2.8</td><td>0.0118</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <tr class="safe-row"><td>11-29 04:02</td><td>398</td><td>64.4°</td><td>1.6</td><td>0.0227</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <!-- 危险故障示例 -->
+                                        <tr class="danger-row"><td>11-29 15:23</td><td>620</td><td>44.2°</td><td>2.0</td><td>0.0344</td><td><span class="status-tag danger">危险</span></td></tr>
+                                        
+                                        <tr class="safe-row"><td>11-30 03:47</td><td>239</td><td>64.3°</td><td>1.9</td><td>0.0197</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <tr class="safe-row"><td>11-30 05:22</td><td>259</td><td>64.3°</td><td>2.3</td><td>0.0085</td><td><span class="status-tag safe">安全</span></td></tr>
+                                        <!-- 危险故障示例 -->
+                                        <tr class="danger-row"><td>11-30 15:12</td><td>402</td><td>35.6°</td><td>2.1</td><td>0.0064</td><td><span class="status-tag danger">危险</span></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="font-size: 11px; color: #94a3b8; margin-top: 5px; background: rgba(0,0,0,0.2); padding: 5px;">
+                                📊 <b>统计结论：</b> 8次安全故障 (高纬/少星) / <span style="color:#ef4444;">3次危险故障 (低纬/多星)</span>
+                            </div>
+                        </div>
+
+                        <!-- 2. 其他异常 (双栏布局) -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; flex: 1;">
+                            <!-- 磁强计 -->
+                            <div class="sub-card">
+                                <div class="sub-title" style="color: #fca5a5;">2. 磁强计通信异常</div>
+                                <div class="sub-content">
+                                    <div>• 磁强计A: <span style="color:#ef4444">+199</span></div>
+                                    <div>• 磁强计B: <span style="color:#ef4444">+198</span></div>
+                                    <div class="sub-reason">
+                                        🔗 <b>归因：</b>485通信
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 星敏 -->
+                            <div class="sub-card">
+                                <div class="sub-title" style="color: #fcd34d;">3. 星敏测量精度</div>
+                                <div class="sub-content">
+                                    <div>• 星敏A/B Y轴超差: <span style="color:#f59e0b">>7"</span></div>
+                                    <div class="sub-reason">
+                                        🧩 <b>归因：</b>数据频率影响分析结果，建议调整遥测下传频率。
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 右侧：AI 专家结论 (Conclusion) -->
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #8b5cf6; background: rgba(139,92,246,0.05); box-shadow: 0 0 30px rgba(139,92,246,0.1);">
+                    
+                    <div style="padding: 15px 20px; background: linear-gradient(90deg, rgba(139,92,246,0.2) 0%, rgba(139,92,246,0) 100%); border-bottom: 1px solid rgba(139,92,246,0.2); display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">🤖</span>
+                        <div>
+                            <div style="font-size: 16px; font-weight: bold; color: #fff;">AI 专家系统诊断</div>
+                            <div style="font-size: 11px; color: #c4b5fd;">基于《诊断宝典》生成</div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+                        
+                        <!-- 总体评价 -->
+                        <div style="display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                            <div style="text-align: center; padding-right: 15px; border-right: 1px solid #444;">
+                                <div style="font-size: 10px; color: #94a3b8;">整体健康度</div>
+                                <div style="font-size: 14px; font-weight: bold; color: #f59e0b;">中等风险</div>
+                            </div>
+                            <div style="font-size: 12px; color: #cbd5e1; line-height: 1.4;">
+                                GNSS 系统存在 <b style="color:#ef4444;">3次危险故障</b>，磁强计通信严重，建议立即进行深度维护。
+                            </div>
+                        </div>
+
+                        <!-- 处置建议 (Action) -->
+                        <div style="flex: 1; display: flex; flex-direction: column;">
+                            <div style="font-size: 13px; color: #fff; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center;">
+                                <span style="background: #8b5cf6; width: 4px; height: 14px; margin-right: 8px; border-radius: 2px;"></span>
+                                专家处置建议 (Actions)
+                            </div>
+                            
+                            <div class="action-list">
+                                <div class="action-item">
+                                    <div class="act-icon red">1</div>
+                                    <div class="act-text">
+                                        <b>GNSS 危险故障排查：</b><br>
+                                        重点检查 27/29/30 日故障时段的接收机硬件状态及电源波动。
+                                    </div>
+                                </div>
+                                <div class="action-item">
+                                    <div class="act-icon orange">2</div>
+                                    <div class="act-text">
+                                        <b>磁强计通信总线复核：</b><br>
+                                        检查 1553B 总线负载率，排除通信接口物理故障。
+                                    </div>
+                                </div>
+                                <div class="action-item">
+                                    <div class="act-icon blue">3</div>
+                                    <div class="act-text">
+                                        <b>星敏参数标定：</b><br>
+                                        针对 Y 轴长期超差，建议在下个测控弧段上注修正后的噪声协方差矩阵 R。
+                                    </div>
+                                </div>
+                                <div class="action-item">
+                                    <div class="act-icon gray">4</div>
+                                    <div class="act-text">
+                                        <b>系统级监控：</b><br>
+                                        调低错误日志报警阈值，密切关注后续增量。
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Styles -->
+            <style>
+                /* GNSS 表格样式 */
+                .safe-row td { color: #94a3b8; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+                .danger-row { background: rgba(239,68,68,0.1); }
+                .danger-row td { color: #fecaca; padding: 4px 6px; border-bottom: 1px solid rgba(239,68,68,0.2); }
+                
+                .status-tag { padding: 1px 4px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+                .status-tag.safe { color: #4ade80; border: 1px solid #4ade80; }
+                .status-tag.danger { color: #ef4444; border: 1px solid #ef4444; background: rgba(239,68,68,0.1); }
+
+                /* 子卡片 */
+                .sub-card {
+                    background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px;
+                    display: flex; flex-direction: column; justify-content: center;
+                }
+                .sub-title { font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+                .sub-content { font-size: 12px; color: #cbd5e1; line-height: 1.5; }
+                .sub-reason { margin-top: 5px; padding-top: 5px; border-top: 1px dashed rgba(255,255,255,0.1); color: #94a3b8; font-style: italic; font-size: 12px; }
+
+                /* 处置列表 */
+                .action-list { display: flex; flex-direction: column; gap: 10px; }
+                .action-item { display: flex; gap: 10px; align-items: flex-start; }
+                .act-icon { 
+                    min-width: 16px; height: 16px; border-radius: 50%; 
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 10px; font-weight: bold; color: #000; margin-top: 2px;
+                }
+                .act-icon.red { background: #ef4444; color: white; }
+                .act-icon.orange { background: #f59e0b; }
+                .act-icon.blue { background: #3b82f6; }
+                .act-icon.gray { background: #94a3b8; }
+                
+                .act-text { font-size: 12px; color: #cbd5e1; line-height: 1.4; }
+                .act-text b { color: #fff; }
+            </style>
+        </div>
+
+<!-- P8: 历年对比与预测 (概念预览页) -->
+        <div class="slide" data-id="8">
+            <div class="slide-header" style="margin-bottom: 30px; border-bottom: none;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    项目成果：历年指标对比及健康预测
+                </div>
+                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+                    Historical Data Comparison
+                </div>
+            </div>
+            
+            <div style="position: relative; height: 500px; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.4);">
+                
+                <!-- 背景：概念图表 (模糊处理，暗示未来功能) -->
+                <div style="opacity: 0.3; filter: blur(3px); transform: scale(0.98); height: 100%; display: flex; flex-direction: column; padding: 40px;">
+                    <!-- 模拟图表标题 -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #94a3b8;">📉 关键单机寿命预测趋势 (Lifetime Prediction)</div>
+                        <div style="display: flex; gap: 20px;">
+                            <div style="width: 100px; height: 10px; background: #334155; border-radius: 5px;"></div>
+                            <div style="width: 100px; height: 10px; background: #334155; border-radius: 5px;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 模拟曲线 -->
+                    <svg width="100%" height="300" viewBox="0 0 1000 300" preserveAspectRatio="none" style="overflow: visible;">
+                        <!-- 坐标轴 -->
+                        <line x1="0" y1="300" x2="1000" y2="300" stroke="#475569" stroke-width="2"/>
+                        <line x1="0" y1="300" x2="0" y2="0" stroke="#475569" stroke-width="2"/>
+                        
+                        <!-- 历史数据 (实线) -->
+                        <path d="M0,50 Q200,80 400,120 T600,180" fill="none" stroke="#3b82f6" stroke-width="4"/>
+                        
+                        <!-- 预测数据 (虚线) -->
+                        <path d="M600,180 Q800,240 1000,280" fill="none" stroke="#f59e0b" stroke-width="4" stroke-dasharray="10,10"/>
+                        
+                        <!-- 关键点 -->
+                        <circle cx="600" cy="180" r="8" fill="#fff" stroke="#3b82f6" stroke-width="3"/>
+                        <text x="600" y="160" fill="#fff" font-size="16" text-anchor="middle">Current</text>
+                        
+                        <circle cx="1000" cy="280" r="8" fill="#ef4444"/>
+                        <text x="1000" y="260" fill="#ef4444" font-size="16" text-anchor="end">EoL (2028)</text>
+                    </svg>
+                </div>
+
+                <!-- 前景：建设中遮罩 (核心展示区) -->
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15,23,42,0.8) 0%, rgba(15,23,42,0.95) 100%);">
+                    
+                    <div style="text-align: center; border: 1px solid rgba(245,158,11,0.3); padding: 50px 80px; border-radius: 20px; background: rgba(245,158,11,0.05); box-shadow: 0 0 50px rgba(245,158,11,0.1);">
+                        <div style="font-size: 60px; margin-bottom: 20px;">🚧</div>
+                        <div style="font-size: 32px; font-weight: bold; color: #fcd34d; margin-bottom: 15px;">功能开发中 (In Development)</div>
+                        <div style="font-size: 16px; color: #cbd5e1; line-height: 1.8; max-width: 600px; margin: 0 auto;">
+                            基于已沉淀的 <b>JSON 数据资产</b>，下一阶段将引入时序预测模型（Time-Series Forecasting）。<br>
+                            旨在实现跨周期指标对比与单机剩余寿命（RUL）预测。
+                        </div>
+                        
+                        <!-- 规划特新列表 -->
+                        <div style="display: flex; gap: 20px; justify-content: center; margin-top: 40px;">
+                            <div class="future-tag">
+                                <span style="color:#f59e0b;">●</span> 跨星横向对比
+                            </div>
+                            <div class="future-tag">
+                                <span style="color:#f59e0b;">●</span> 全生命周期回溯
+                            </div>
+                            <div class="future-tag">
+                                <span style="color:#f59e0b;">●</span> 寿命预警模型
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <style>
+                .future-tag {
+                    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+                    padding: 8px 16px; border-radius: 30px; font-size: 14px; color: #e2e8f0;
+                }
+            </style>
+        </div>
+<!-- P9: 用户故事 (内容预留页) -->
+        <div class="slide" data-id="9">
+            <div class="slide-header" style="margin-bottom: 30px; border-bottom: none;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    用户故事
+                </div>
+                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+                    User Stories & Application Scenarios
+                </div>
+            </div>
+            
+            <!-- 内容占位区 -->
+            <div class="glass-panel" style="height: 500px; display: flex; align-items: center; justify-content: center; border-top: 4px solid #a78bfa; background: rgba(167, 139, 250, 0.02);">
+                
+                <div style="text-align: center; color: #64748b; border: 2px dashed #475569; padding: 60px 100px; border-radius: 12px; background: rgba(0,0,0,0.2);">
+                    <div style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;">📝</div>
+                    <div style="font-size: 18px; font-weight: bold; color: #94a3b8;">内容规划中</div>
+                    <div style="font-size: 12px; margin-top: 8px; opacity: 0.6;">Content Pending...</div>
+                </div>
+
+            </div>
+        </div>
+<!-- P10: 项目展望 (GS-Vitalis Pro) -->
+        <div class="slide" data-id="10">
+            <div class="slide-header" style="margin-bottom: 30px; border-bottom: none;">
+                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    项目展望：GS-Vitalis Pro
+                </div>
+                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+                    Future Roadmap
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; height: 500px; align-items: stretch;">
+                
+                <!-- V1.0: 横向扩展 (Green) -->
+                <div class="glass-panel outlook-card" style="border-top: 4px solid #10b981; background: rgba(16, 185, 129, 0.02);">
+                    
+                    <!-- 时间节点 -->
+                    <div class="timeline-date" style="color: #10b981;">2025.12.30</div>
+                    
+                    <!-- 核心徽章 -->
+                    <div class="v-badge-container">
+                        <div class="v-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                            V1.0
+                        </div>
+                        <div class="v-title">横向 · 全域覆盖</div>
+                        <div class="v-sub">Horizontal Coverage</div>
+                    </div>
+
+                    <!-- 详细内容 -->
+                    <div class="outlook-content">
+                        <div class="list-item">
+                            <span class="num" style="background:#10b981;">1</span>
+                            <div class="text">
+                                <b>打破分系统壁垒：</b><br>
+                                将智能分析能力从姿轨控扩展至全星核心系统（热、电、综）。
+                            </div>
+                        </div>
+                        <div class="list-item">
+                            <span class="num" style="background:#10b981;">2</span>
+                            <div class="text">
+                                <b>引入高校进化模型：</b><br>
+                                建立基于物理机理的单机 SOH (State of Health) 衰退模型。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 底部标签矩阵 -->
+                    <div class="tag-grid">
+                        <div class="tag-item green">热控分系统</div>
+                        <div class="tag-item green">SADA</div>
+                        <div class="tag-item green">能源分系统</div>
+                        <div class="tag-item green">电池组</div>
+                        <div class="tag-item green">软件分系统</div>
+                        <div class="tag-item green">电推</div>
+                    </div>
+                    
+                    <!-- 背景装饰 -->
+                    <div class="bg-icon">↔️</div>
+                </div>
+
+                <!-- V2.0: 纵向挖掘 (Blue) -->
+                <div class="glass-panel outlook-card" style="border-top: 4px solid #3b82f6; background: rgba(59, 130, 246, 0.02);">
+                    
+                    <!-- 时间节点 -->
+                    <div class="timeline-date" style="color: #3b82f6;">2026.06.30</div>
+                    
+                    <!-- 核心徽章 -->
+                    <div class="v-badge-container">
+                        <div class="v-badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3);">
+                            V2.0
+                        </div>
+                        <div class="v-title">纵向 · 深度挖掘</div>
+                        <div class="v-sub">Vertical Deep Mining</div>
+                    </div>
+
+                    <!-- 详细内容 -->
+                    <div class="outlook-content">
+                        <div class="list-item">
+                            <span class="num" style="background:#3b82f6;">1</span>
+                            <div class="text">
+                                <b>突破单机限制：</b><br>
+                                利用 AI 解决复杂强耦合问题，实现系统级性能预测。
+                            </div>
+                        </div>
+                        <div class="list-item">
+                            <span class="num" style="background:#3b82f6;">2</span>
+                            <div class="text">
+                                <b>整星级寿命预测：</b><br>
+                                基于多源数据融合的 RUL (Remaining Useful Life) 预估。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 底部标签矩阵 -->
+                    <div class="tag-grid col-1">
+                        <div class="tag-item blue wide">强耦合故障解耦</div>
+                        <div class="tag-item blue wide">深层隐患挖掘</div>
+                        <div class="tag-item blue wide">整星寿命预测</div>
+                    </div>
+
+                    <!-- 背景装饰 -->
+                    <div class="bg-icon">⬇️</div>
+                </div>
+
+            </div>
+
+            <style>
+                .outlook-card {
+                    padding: 0; display: flex; flex-direction: column; position: relative; overflow: hidden;
+                    transition: transform 0.3s;
+                }
+                .outlook-card:hover { transform: translateY(-5px); }
+
+                .timeline-date {
+                    font-size: 24px; font-weight: 900; opacity: 0.2; position: absolute; top: 15px; right: 20px;
+                    font-family: 'Segoe UI', sans-serif; letter-spacing: 1px;
+                }
+
+                .v-badge-container {
+                    display: flex; flex-direction: column; align-items: center; justify-content: center;
+                    padding: 30px 0 20px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);
+                }
+                .v-badge {
+                    width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+                    font-size: 20px; font-weight: bold; margin-bottom: 15px;
+                    box-shadow: 0 0 20px rgba(0,0,0,0.2);
+                }
+                .v-title { font-size: 22px; font-weight: bold; color: #fff; margin-bottom: 5px; }
+                .v-sub { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+
+                .outlook-content { flex: 1; padding: 25px 30px; display: flex; flex-direction: column; gap: 20px; }
+                
+                .list-item { display: flex; gap: 15px; align-items: flex-start; }
+                .num { 
+                    min-width: 20px; height: 20px; border-radius: 50%; color: white; font-size: 12px; font-weight: bold;
+                    display: flex; align-items: center; justify-content: center; margin-top: 3px;
+                }
+                .text { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+                .text b { color: #fff; font-size: 15px; }
+
+                .tag-grid {
+                    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 30px 30px 30px;
+                }
+                .tag-grid.col-1 { grid-template-columns: 1fr; }
+
+                .tag-item {
+                    text-align: center; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: bold;
+                    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0;
+                }
+                .tag-item.green { border-left: 3px solid #10b981; }
+                .tag-item.blue { border-left: 3px solid #3b82f6; }
+                
+                .bg-icon {
+                    position: absolute; bottom: -20px; right: -20px; font-size: 150px; opacity: 0.03; pointer-events: none;
+                }
+            </style>
+        </div>
+<!-- P11: 致谢 (人员名单更新版) -->
+        <div class="slide" data-id="11" style="padding: 0; overflow: hidden;">
+            
+            <!-- 1. 背景图容器 -->
+            <div class="bg-layer"></div>
+
+            <!-- 2. 渐变遮罩 (保证右侧文字可读性) -->
+            <div class="gradient-overlay"></div>
+
+            <!-- 3. 滚动的演职员表 -->
+            <div class="credits-container">
+                <div class="credits-scroll">
+                    
+                    <!-- Title -->
+                    <div style="margin-bottom: 60px;">
+                        <div style="font-size: 48px; font-weight: 900; color: #fff; letter-spacing: 4px;">GS-Vitalis</div>
+                        <div style="font-size: 14px; color: #3b82f6; letter-spacing: 2px; margin-top: 5px;">银河航天 · 姿轨控系统</div>
+                    </div>
+
+                    <!-- 负责人 -->
+                    <div class="credit-group">
+                        <div class="role">负责人</div>
+                        <div class="name big">夏赫松</div>
+                    </div>
+
+                    <!-- 项目筹划 -->
+                    <div class="credit-group">
+                        <div class="role">项目筹划</div>
+                        <div class="name">王有松</div>
+                        <div class="name">刘 &nbsp; 川</div>
+                        <div class="name">吴一凡</div>
+                    </div>
+
+                    <!-- 算法设计 -->
+                    <div class="credit-group">
+                        <div class="role">算法设计</div>
+                        <div class="name">金 &nbsp; 震</div>
+                        <div class="name">赵晓涛</div>
+                        <div class="name">孟少康</div>
+                        <div class="name">吴铭恩</div>
+                        <div class="name">刘天顺</div>
+                        <div class="name">王嘉乐</div>
+                        <div class="name">郭丽秀</div>
+                    </div>
+
+                    <!-- 软件开发 -->
+                    <div class="credit-group">
+                        <div class="role">软件开发</div>
+                        <!-- 这里根据图片，Google Gemini 被放在了开发栏 -->
+                        <div class="name" style="color: #60a5fa; font-family: 'Segoe UI', sans-serif;">Google Gemini</div>
+                    </div>
+
+                    <!-- AI合作伙伴 -->
+                    <div class="credit-group">
+                        <div class="role">AI合作伙伴</div>
+                        <div class="name" style="font-family: 'Segoe UI', sans-serif;">Google Gemini</div>
+                        <div class="name" style="font-family: 'Segoe UI', sans-serif;">GitHub Copilot</div>
+                        <div class="name" style="font-family: 'Segoe UI', sans-serif;">DeepSeek</div>
+                    </div>
+
+                    <!-- 特别鸣谢 -->
+                    <div class="credit-group">
+                        <div class="role">特别鸣谢</div>
+                        <div class="name">王 &nbsp; 钊</div>
+                        <div class="name">张 &nbsp; 博</div>
+                        <div class="name">刘东岳</div>
+                        <div class="name">测运控团队</div>
+                    </div>
+
+                    <!-- Ending Logo -->
+                    <div style="margin-top: 80px; margin-bottom: 200px;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">🌌</div>
+                        <div style="font-size: 14px; color: #64748b; letter-spacing: 2px;">THANKS FOR WATCHING</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <style>
+                /* 背景图设置 */
+                .bg-layer {
+                    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                    /* 请确保图片路径正确，建议使用深色背景图 */
+                    background: url('./doc/Background.jpg') no-repeat center center;
+                    background-size: cover;
+                    z-index: 0;
+                }
+
+                /* 右侧暗色渐变遮罩 (增强文字对比度) */
+                .gradient-overlay {
+                    position: absolute; top: 0; right: 0; width: 50%; height: 100%;
+                    background: linear-gradient(to right, transparent 0%, rgba(2, 6, 23, 0.9) 40%, rgba(2, 6, 23, 1) 100%);
+                    z-index: 1;
+                }
+
+                /* 滚动容器 */
+                .credits-container {
+                    position: absolute; top: 0; right: 0; width: 40%; height: 100%;
+                    z-index: 2;
+                    overflow: hidden;
+                    /* 上下边缘柔和淡出 */
+                    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+                    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+                }
+
+                /* 滚动核心动画 */
+                .credits-scroll {
+                    display: flex; flex-direction: column; align-items: center; text-align: center;
+                    /* 28秒滚完，您可以根据文字长度微调 */
+                    animation: creditsRoll 28s linear infinite;
+                    padding-top: 720px; /* 初始位置：屏幕下方 */
+                }
+                
+                /* 交互：鼠标悬停暂停 */
+                .credits-container:hover .credits-scroll {
+                    animation-play-state: paused;
+                }
+
+                @keyframes creditsRoll {
+                    0% { transform: translateY(0); }
+                    100% { transform: translateY(-180%); } /* 根据内容长度调整百分比 */
+                }
+
+                /* 文字排版 */
+                .credit-group { margin-bottom: 40px; }
+                
+                .role {
+                    font-size: 13px; color: #94a3b8; margin-bottom: 10px;
+                    text-transform: uppercase; letter-spacing: 2px;
+                    border-bottom: 1px solid rgba(255,255,255,0.1);
+                    display: inline-block; padding-bottom: 4px;
+                }
+                
+                .name {
+                    font-size: 22px; color: #fff; font-weight: bold;
+                    margin-bottom: 8px; letter-spacing: 2px;
+                    text-shadow: 0 2px 10px rgba(0,0,0,0.8); /* 增强阴影，防止背景干扰 */
+                }
+                
+                .name.big { font-size: 28px; color: #fff; }
+            </style>
+        </div>
+    </div>
+
+    <!-- 底部导航点 -->
+    <div class="controls" id="nav-dots"></div>
+
+    <script>
+        // --- 核心逻辑 ---
+
+        // 1. 自动缩放：确保在任何分辨率屏幕上都完美居中
+        function scaleDeck() {
+            const container = document.getElementById('deck-scaler');
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const baseW = 1280;
+            const baseH = 720;
+            
+            // 计算缩放比例，保留一点边距
+            const scale = Math.min(winW / baseW, winH / baseH) * 0.95;
+            
+            container.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', scaleDeck);
+        scaleDeck(); // 初始化
+
+        // 2. 幻灯片切换逻辑
+        const slides = document.querySelectorAll('.slide');
+        const dotsContainer = document.getElementById('nav-dots');
+        let current = 0;
+
+        // 初始化导航点
+        slides.forEach((_, idx) => {
+            const dot = document.createElement('div');
+            dot.className = `dot ${idx === 0 ? 'active' : ''}`;
+            dot.onclick = () => goTo(idx);
+            dotsContainer.appendChild(dot);
+        });
+        const dots = document.querySelectorAll('.dot');
+
+        function goTo(index) {
+            slides[current].classList.remove('active');
+            dots[current].classList.remove('active');
+            current = index;
+            slides[current].classList.add('active');
+            dots[current].classList.add('active');
+        }
+
+        // 3. 键盘控制
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) {
+                if (current < slides.length - 1) goTo(current + 1);
+            } else if (['ArrowLeft', 'PageUp'].includes(e.key)) {
+                if (current > 0) goTo(current - 1);
+            } else if (e.key === 'F11') {
+                // 按 F11 后隐藏提示
+                const tip = document.getElementById('fs-tip');
+                if(tip) { tip.style.opacity = '0'; setTimeout(() => tip.remove(), 500); }
+            }
+        });
+
+        // 点击提示框关闭
+        document.getElementById('fs-tip').onclick = function() {
+            this.style.opacity = '0';
+            setTimeout(() => this.remove(), 500);
+        }
+    </script>
+</body>
+</html>
