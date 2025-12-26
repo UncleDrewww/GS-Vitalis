@@ -697,7 +697,7 @@
                         <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 0 20px; border-radius: 8px; border-left: 4px solid #f97316; display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; flex-direction: column; justify-content: center;">
                                 <div style="font-size: 36px; font-weight: 800; color: #fff; line-height: 1;">100+</div>
-                                <div style="font-size: 14px; color: #fdba74; margin-top: 4px;">在轨典型故障</div>
+                                <div style="font-size: 14px; color: #fdba74; margin-top: 4px;">在轨典型故障/归零报告</div>
                             </div>
                             <div style="font-size: 32px; opacity: 0.8;">🛰️</div>
                         </div>
@@ -722,7 +722,7 @@
                 <!-- 2. AI 知识提炼引擎 (Middle) -->
                 <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(59,130,246,0.02);">
                     <div style="padding: 12px; background: rgba(59,130,246,0.1); border-bottom: 1px solid rgba(59,130,246,0.2); font-weight: bold; font-size: 16px; color: #93c5fd; text-align: center;">
-                        2. AI 知识提炼引擎 (MCP)
+                        2. AI 知识提炼引擎
                     </div>
 
                     <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: flex-start; gap: 15px;">
@@ -1352,8 +1352,7 @@
                         <span style="font-size: 18px; margin-right: 6px;">🩺</span> 诊断结论 (Diagnostic Conclusion)
                     </div>
                     <div style="font-size: 14px; color: #fca5a5; line-height: 1.6; text-align: justify;">
-                        监测到 24.01 后，飞轮摩擦力矩呈恶化趋势<b style="color:#fff; border-bottom: 1px dashed #fff;">强相关恶化</b>趋势。
-                        精度在半年内从 <b style="color:#fff;">0.5rpm</b> 震荡爬升至 <b style="color:#ef4444; font-size: 16px;">1.0rpm</b>，伴随不规则噪声增强，符合典型机械轴承“卡死前夕”的性能衰退特征。
+                        监测到 24.01 后，飞轮摩擦力矩逐渐增大，需关注。
                     </div>
                 </div>
             </div>
@@ -1460,7 +1459,7 @@
         
         <!-- 左侧：中文主标题 -->
         <div class="slide-title" style="font-size: 40px; background: linear-gradient(to right, #fff, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: 1px; line-height: 1;">
-            用户故事：效率的极致提升
+            用户故事
         </div>
         
         <!-- 右侧：Logo + 英文副标题 (垂直排列，右对齐) -->
@@ -1630,10 +1629,10 @@
 </div>
 
 
-<!-- P10: 技术展望与核心突破 (GS-Vitalis Pro) -->
+<!-- P10: 技术展望与核心突破 (最终对齐版：强制高度+顶部对齐) -->
 <div class="slide" data-id="10">
     
-    <!-- 1. 头部 -->
+    <!-- 1. 头部 (保持双Logo不变) -->
     <div class="slide-header" style="height: 70px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px;">
         <div>
             <div class="slide-title" style="font-size: 40px; background: linear-gradient(to right, #fff, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: 1px;">
@@ -1643,43 +1642,46 @@
                 TECHNOLOGY ROADMAP: TIME-SERIES PREDICTION & PHYSICS-INFORMED AI
             </div>
         </div>
-        <div style="background: rgba(30, 58, 138, 0.4); padding: 8px 16px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 20px;">🌌</span> 银河航天
+        
+        <!-- Logo 区域 -->
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 5px 15px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); display: flex; align-items: center; gap: 15px; backdrop-filter: blur(5px);">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <img src="GalaxySpace.png" alt="银河航天" style="height: 100px; object-fit: contain;">
+            </div>
+            <div style="width: 1px; height: 40px; background: rgba(255,255,255,0.2);"></div>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <img src="BJYD.png" alt="北邮" style="height: 100px; object-fit: contain;">
+            </div>
         </div>
     </div>
     
-    <!-- 2. 主体内容：双核驱动 -->
+    <!-- 2. 主体内容：1:1 等宽 -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; height: 500px;">
         
-        <!-- 左侧：卫星预防 (基于图1 Transformer/Patch) -->
+        <!-- ================= 左侧：卫星预防 ================= -->
         <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #8b5cf6; background: rgba(15, 23, 42, 0.85); overflow: hidden; position: relative;">
             
-            <!-- 标题栏 -->
-            <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(139, 92, 246, 0.1);">
+            <!-- 标题栏 (高度自动，靠内容撑开，保持一致的padding) -->
+            <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(139, 92, 246, 0.1); flex-shrink: 0;">
                 <div style="font-size: 18px; font-weight: bold; color: #c4b5fd; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 20px;">📡</span> 卫星故障预防：时序大模型
                 </div>
             </div>
 
-            <!-- 核心可视化区域 (CSS模拟 Patching) -->
-            <div style="padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 140px; background: rgba(0,0,0,0.2);">
-                <div style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Input Series -> Patches (Tokenization)</div>
-                <div class="patch-container">
-                    <div class="patch p1"></div><div class="patch p2"></div><div class="patch p3"></div>
-                    <div class="patch-arrow">➜</div>
-                    <div class="patch p-transformer">Transformer<br>Encoder</div>
-                    <div class="patch-arrow">➜</div>
-                    <div class="patch p-pred">Prediction</div>
-                </div>
+            <!-- ★★★ 图形区：强制高度 220px ★★★ -->
+            <div style="height: 220px; width: 100%; padding: 10px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); overflow: hidden; flex-shrink: 0; box-sizing: border-box;">
+                <img src="Prediction.png" alt="Transformer Model" 
+                     style="max-width: 95%; max-height: 200px; object-fit: contain; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
             </div>
 
-            <!-- 内容描述 -->
-            <div style="flex: 1; padding: 25px; display: flex; flex-direction: column; gap: 15px;">
+            <!-- ★★★ 文字区：顶部对齐 (flex-start) + 固定上内边距 (30px) ★★★ -->
+            <!-- 这样无论文字多少，第一行字永远从距离图形区 30px 的地方开始 -->
+            <div style="flex: 1; padding: 30px 25px 20px 25px; display: flex; flex-direction: column; justify-content: flex-start; gap: 20px; background: rgba(0,0,0,0.2);">
                 <div class="feature-item">
                     <div class="f-icon">🧩</div>
                     <div>
                         <div class="f-title">Patching 技术 (分片处理)</div>
-                        <div class="f-desc">将长时间序列分割成小片段 (Patches)，类似 NLP 中的 Token 处理方式。</div>
+                        <div class="f-desc">将长时间序列分割成小片段 (Patches)，类似 NLP 中的 Token，适配高频遥测。</div>
                     </div>
                 </div>
                 <div class="feature-item">
@@ -1689,31 +1691,22 @@
                         <div class="f-desc">基于 Transformer 的注意力机制，并行预测未来片段，显著加速训练与推理。</div>
                     </div>
                 </div>
-                <div class="feature-item">
-                    <div class="f-icon">🛡️</div>
-                    <div>
-                        <div class="f-title">主动预防</div>
-                        <div class="f-desc">从“事后诊断”转向“事前预警”，捕捉微小趋势异常。</div>
-                    </div>
-                </div>
             </div>
             
-            <!-- 背景装饰 -->
-            <div style="position: absolute; bottom: -20px; right: -20px; font-size: 120px; opacity: 0.03; color: #8b5cf6; pointer-events: none;">AI</div>
         </div>
 
-        <!-- 右侧：寿命预测 (基于图2 物理模型约束) -->
+        <!-- ================= 右侧：寿命预测 ================= -->
         <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #10b981; background: rgba(15, 23, 42, 0.85); overflow: hidden; position: relative;">
             
             <!-- 标题栏 -->
-            <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(16, 185, 129, 0.1);">
+            <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(16, 185, 129, 0.1); flex-shrink: 0;">
                 <div style="font-size: 18px; font-weight: bold; color: #6ee7b7; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 20px;">🔋</span> 关键部位寿命预测
                 </div>
             </div>
 
-            <!-- 核心可视化区域 (CSS模拟 Physics + AI) -->
-            <div style="padding: 20px; display: flex; align-items: center; justify-content: center; height: 140px; background: rgba(0,0,0,0.2); gap: 15px;">
+            <!-- ★★★ 图形区：强制高度 220px (与左侧严格一致) ★★★ -->
+            <div style="height: 220px; width: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); gap: 15px; flex-shrink: 0; box-sizing: border-box;">
                 <div class="model-box physics">
                     <div class="mb-icon">⚙️</div>
                     <div class="mb-text">物理机理</div>
@@ -1730,8 +1723,9 @@
                 </div>
             </div>
 
-            <!-- 内容描述 -->
-            <div style="flex: 1; padding: 25px; display: flex; flex-direction: column; gap: 15px;">
+            <!-- ★★★ 文字区：顶部对齐 (flex-start) + 固定上内边距 (30px) ★★★ -->
+            <!-- 保证文字起始位置与左侧完全水平对齐 -->
+            <div style="flex: 1; padding: 30px 25px 20px 25px; display: flex; flex-direction: column; justify-content: flex-start; gap: 20px;">
                 <div class="feature-item">
                     <div class="f-icon green">📐</div>
                     <div>
@@ -1746,13 +1740,6 @@
                         <div class="f-desc">针对蓄电池、动量轮等关键部位的物理退化特征进行定制化建模。</div>
                     </div>
                 </div>
-                <div class="feature-item">
-                    <div class="f-icon green">📝</div>
-                    <div>
-                        <div class="f-title">应用落地</div>
-                        <div class="f-desc">自动生成卫星健康管理体检报告，量化剩余寿命 (RUL)。</div>
-                    </div>
-                </div>
             </div>
 
             <!-- 背景装饰 -->
@@ -1762,33 +1749,21 @@
     </div>
 
     <style>
-        /* 公共样式 */
+        /* 复用原有样式 */
         .feature-item { display: flex; gap: 15px; align-items: flex-start; }
         .f-icon { width: 32px; height: 32px; background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
         .f-icon.green { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
         .f-title { font-size: 15px; font-weight: bold; color: #e2e8f0; margin-bottom: 4px; }
         .f-desc { font-size: 13px; color: #94a3b8; line-height: 1.5; }
 
-        /* 左侧 Patch 动画模拟 */
-        .patch-container { display: flex; align-items: center; gap: 8px; }
-        .patch { height: 40px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); }
-        .p1 { width: 10px; background: #4c1d95; animation: blink 2s infinite; }
-        .p2 { width: 10px; background: #6d28d9; animation: blink 2s infinite 0.2s; }
-        .p3 { width: 10px; background: #8b5cf6; animation: blink 2s infinite 0.4s; }
-        .p-transformer { width: 80px; background: rgba(139, 92, 246, 0.2); color: #c4b5fd; font-size: 10px; display: flex; align-items: center; justify-content: center; text-align: center; border: 1px dashed #8b5cf6; }
-        .p-pred { width: 60px; background: #10b981; color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(16,185,129,0.5); }
-        .patch-arrow { color: #64748b; font-size: 12px; }
-
-        @keyframes blink { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-
-        /* 右侧 物理+AI 模拟 */
-        .model-box { width: 70px; height: 70px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(255,255,255,0.1); }
+        /* 右侧方块样式 */
+        .model-box { width: 85px; height: 85px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(255,255,255,0.1); transition: transform 0.3s; }
+        .model-box:hover { transform: translateY(-5px); }
         .model-box.physics { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
         .model-box.ai { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
-        .model-box.result { background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.4)); color: #fff; border: 1px solid #10b981; box-shadow: 0 0 15px rgba(16,185,129,0.2); }
-        .mb-icon { font-size: 24px; }
-        .mb-text { font-size: 10px; font-weight: bold; }
-
+        .model-box.result { background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.4)); color: #fff; border: 1px solid #10b981; box-shadow: 0 0 20px rgba(16,185,129,0.15); }
+        .mb-icon { font-size: 30px; }
+        .mb-text { font-size: 11px; font-weight: bold; }
     </style>
 </div>
 <!-- P11: 致谢 (人员名单更新版) -->
@@ -1938,10 +1913,8 @@
     <!-- 底部导航点 -->
     <div class="controls" id="nav-dots"></div>
 
-    <script>
-        // --- 核心逻辑 ---
-
-        // 1. 自动缩放：确保在任何分辨率屏幕上都完美居中
+<script>
+        // --- 1. 初始化与自适应缩放 ---
         function scaleDeck() {
             const container = document.getElementById('deck-scaler');
             const winW = window.innerWidth;
@@ -1949,53 +1922,90 @@
             const baseW = 1280;
             const baseH = 720;
             
-            // 计算缩放比例，保留一点边距
+            // 计算缩放比例，保持 16:9 比例并在窗口中居中
             const scale = Math.min(winW / baseW, winH / baseH) * 0.95;
             
             container.style.transform = `scale(${scale})`;
         }
         window.addEventListener('resize', scaleDeck);
-        scaleDeck(); // 初始化
+        scaleDeck(); // 页面加载时立即触发一次
 
-        // 2. 幻灯片切换逻辑
+        // --- 2. 幻灯片核心逻辑 ---
         const slides = document.querySelectorAll('.slide');
         const dotsContainer = document.getElementById('nav-dots');
         let current = 0;
 
-        // 初始化导航点
+        // 生成底部导航点
         slides.forEach((_, idx) => {
             const dot = document.createElement('div');
             dot.className = `dot ${idx === 0 ? 'active' : ''}`;
-            dot.onclick = () => goTo(idx);
+            dot.onclick = () => goTo(idx); // 支持点击底部圆点跳转
             dotsContainer.appendChild(dot);
         });
         const dots = document.querySelectorAll('.dot');
 
+        // 切换函数
         function goTo(index) {
+            // 边界检查：防止翻过头
+            if (index < 0 || index >= slides.length) return;
+
+            // 移除旧状态
             slides[current].classList.remove('active');
             dots[current].classList.remove('active');
+            
+            // 更新索引
             current = index;
+            
+            // 添加新状态
             slides[current].classList.add('active');
             dots[current].classList.add('active');
         }
 
-        // 3. 键盘控制
+        // --- 3. 键盘控制 (方向键 + 空格 + 回车) ---
         document.addEventListener('keydown', (e) => {
-            if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) {
-                if (current < slides.length - 1) goTo(current + 1);
-            } else if (['ArrowLeft', 'PageUp'].includes(e.key)) {
-                if (current > 0) goTo(current - 1);
-            } else if (e.key === 'F11') {
-                // 按 F11 后隐藏提示
-                const tip = document.getElementById('fs-tip');
-                if(tip) { tip.style.opacity = '0'; setTimeout(() => tip.remove(), 500); }
+            // 下一页：右箭头、下箭头、空格、回车、PageDown
+            if (['ArrowRight', 'ArrowDown', ' ', 'Enter', 'PageDown'].includes(e.key)) {
+                goTo(current + 1);
+            } 
+            // 上一页：左箭头、上箭头、PageUp
+            else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
+                goTo(current - 1);
             }
         });
 
-        // 点击提示框关闭
-        document.getElementById('fs-tip').onclick = function() {
-            this.style.opacity = '0';
-            setTimeout(() => this.remove(), 500);
+        // --- 4. 鼠标滚轮控制 (带防抖冷却) ---
+        let isScrolling = false; // 滚动状态锁
+        const SCROLL_COOLDOWN = 1000; // 冷却时间 1秒 (对应CSS动画时长+阅读缓冲)
+
+        window.addEventListener('wheel', (e) => {
+            // 如果正在冷却中，忽略这次滚动
+            if (isScrolling) return;
+
+            // 过滤掉触摸板的微小误触 (阈值可微调)
+            if (Math.abs(e.deltaY) < 30) return;
+
+            // 向下滚动 -> 下一页
+            if (e.deltaY > 0) {
+                if (current < slides.length - 1) {
+                    goTo(current + 1);
+                    activateCooldown();
+                }
+            } 
+            // 向上滚动 -> 上一页
+            else {
+                if (current > 0) {
+                    goTo(current - 1);
+                    activateCooldown();
+                }
+            }
+        }, { passive: true });
+
+        // 激活冷却定时器
+        function activateCooldown() {
+            isScrolling = true;
+            setTimeout(() => {
+                isScrolling = false;
+            }, SCROLL_COOLDOWN);
         }
     </script>
 </body>
