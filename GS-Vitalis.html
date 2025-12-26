@@ -186,27 +186,63 @@
         <!-- P2: 背景痛点 (复刻优化版) -->
         <div class="slide" data-id="2">
             <div class="slide-header">
-                <div class="slide-title">项目背景：在轨数据分析的困境与挑战</div>
+                <div class="slide-title">项目背景：在轨状态维护的困境与挑战</div>
                 <div class="slide-sub">Background: Dilemmas & Challenges</div>
             </div>
             
             <div style="display: grid; grid-template-columns: 280px 1fr 300px; gap: 20px; height: 100%;">
                 
-                <!-- 左侧：数据价值 -->
-                <div class="glass-panel" style="display: flex; flex-direction: column; align-items: center; text-align: center; padding: 30px 20px;">
-                    <div style="font-size: 16px; font-weight: bold; color: #60a5fa; margin-bottom: 30px;">在轨数据可以用来做什么</div>
+                                <!-- 左侧：卫星在轨状态维护模型 (放大填充版) -->
+                <div class="glass-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 30px 25px; text-align: center;">
                     
-                    <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 20px; width: 100%; margin-bottom: 30px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                        <div style="font-size: 50px; margin-bottom: 10px;">🛰️</div>
-                        <div style="font-size: 48px; font-weight: 800; color: #fff;">1,000+</div>
-                        <div style="font-size: 12px; color: #94a3b8;">单星遥测参数量</div>
+                    <!-- 标题 (字号加大) -->
+
+                    
+                    <!-- 金字塔模型 (尺寸放大：160->200) -->
+                    <div style="position: relative; width: 200px; height: 150px; margin: 10px 0;">
+                        <!-- 三角形背景 -->
+                        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); background: linear-gradient(180deg, rgba(59,130,246,0.3) 0%, rgba(30,41,59,0.6) 100%); border-bottom: 2px solid #60a5fa;"></div>
+                        <!-- 分割线 -->
+                        <div style="position: absolute; top: 50%; left: 25%; width: 50%; height: 1px; background: rgba(255,255,255,0.3);"></div>
+                        
+                        <!-- 文字 (定位微调) -->
+                        <div style="position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #fff; font-weight: bold;">网络运营</div>
+                        <div style="position: absolute; top: 75%; left: 50%; transform: translate(-50%, -50%); font-size: 15px; color: #cbd5e1;">卫星制造</div>
                     </div>
 
-                    <div style="text-align: left; width: 100%; font-size: 14px; color: #cbd5e1; line-height: 2;">
-                        <div>1. 健康状态评估</div>
-                        <div>2. 系统指标验证</div>
-                        <div>3. 故障分析及处置</div>
+                    <!-- 攻守概念 (字号14->16px，增加间距) -->
+                    <div style="width: 100%; text-align: left; padding: 0 15px;">
+                        <div style="margin-bottom: 12px; font-size: 16px; color: #e2e8f0;">
+                            <b style="color: #60a5fa; margin-right: 8px;">攻 :</b> 研制、发射
+                        </div>
+                        <div style="font-size: 16px; color: #e2e8f0;">
+                            <b style="color: #10b981; margin-right: 8px;">守 :</b> 维护、处置
+                        </div>
                     </div>
+
+                    <!-- 数据表格 (字号12->14px，Padding加大) -->
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid rgba(255,255,255,0.2);">
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.1);">
+                                <th style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">年份</th>
+                                <th style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">发射</th>
+                                <th style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">报废</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">2024</td>
+                                <td style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">1919</td>
+                                <td style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">316</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">2025</td>
+                                <td style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px;">3095</td>
+                                <td style="border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px; color: #ef4444; font-weight: 900; font-size: 16px;">1000+?</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
                 </div>
 
                 <!-- 中间：层级现状 -->
@@ -214,43 +250,43 @@
                     
                     <!-- 测运控层 -->
                     <div class="glass-panel" style="position: relative; flex: 1; display: flex; align-items: flex-start; gap: 15px; border-left: 4px solid #10b981; background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(0,0,0,0) 100%);">
-                        <div style="position: absolute; top: 0; right: 0; background: #065f46; color: #6ee7b7; font-size: 10px; padding: 4px 8px; border-bottom-left-radius: 8px;">测运控层</div>
+                        <div style="position: absolute; top: 0; right: 0; background: #065f46; color: #6ee7b7; font-size: 12px; padding: 4px 8px; border-bottom-left-radius: 8px;">测运控层</div>
                         <div style="font-size: 32px;">🤖</div>
                         <div>
-                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">定期故障统计</div>
-                            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 5px;">
+                            <div style="font-weight: bold; font-size: 20px; margin-bottom: 8px;">定期故障统计</div>
+                            <div style="font-size: 16px; color: #94a3b8; line-height: 1.5; margin-bottom: 5px;">
                                 自动化周报/月报/季报，覆盖各单机、各分系统。
                             </div>
-                            <div style="font-size: 12px; color: #fca5a5; font-weight: bold;">仅统计、无分析</div>
+                            <div style="font-size: 15px; color: #fca5a5; font-weight: bold;">仅统计、无分析</div>
                         </div>
                     </div>
 
                     <!-- 分系统层 -->
                     <div class="glass-panel" style="position: relative; flex: 1; display: flex; align-items: flex-start; gap: 15px; border-left: 4px solid #f59e0b; background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, rgba(0,0,0,0) 100%);">
-                        <div style="position: absolute; top: 0; right: 0; background: #78350f; color: #fcd34d; font-size: 10px; padding: 4px 8px; border-bottom-left-radius: 8px;">分系统层</div>
+                        <div style="position: absolute; top: 0; right: 0; background: #78350f; color: #fcd34d; font-size: 12px; padding: 4px 8px; border-bottom-left-radius: 8px;">分系统层</div>
                         <div style="font-size: 32px;">⚙️</div>
                         <div>
-                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">深度状态评估</div>
-                            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                            <div style="font-weight: bold; font-size: 20px; margin-bottom: 8px;">深度状态评估</div>
+                            <div style="font-size: 16px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
                                 年度评估，包括单机性能、指标验证、机理分析等 <b style="color: #fcd34d;">32项</b>。
                             </div>
-                            <div style="font-size: 13px; color: #fff;">
-                                2026年预计消耗人力 <b style="color: #ef4444; font-size: 16px;">400天</b>
+                            <div style="font-size: 15px; color: #fff;">
+                                2026年预计消耗人力 <b style="color: #ef4444; font-size: 18px;">400天</b>
                             </div>
                         </div>
                     </div>
 
                     <!-- 系统层 -->
                     <div class="glass-panel" style="position: relative; flex: 1; display: flex; align-items: flex-start; gap: 15px; border-left: 4px solid #ef4444; background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(0,0,0,0) 100%);">
-                        <div style="position: absolute; top: 0; right: 0; background: #7f1d1d; color: #fca5a5; font-size: 10px; padding: 4px 8px; border-bottom-left-radius: 8px;">系统层</div>
+                        <div style="position: absolute; top: 0; right: 0; background: #7f1d1d; color: #fca5a5; font-size: 12px; padding: 4px 8px; border-bottom-left-radius: 8px;">系统层</div>
                         <div style="font-size: 32px;">⚠️</div>
                         <div>
-                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">异常问题处置</div>
-                            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                            <div style="font-weight: bold; font-size: 20px; margin-bottom: 8px;">异常问题处置</div>
+                            <div style="font-size: 16px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
                                 针对安全模式等重大异常的全链路数据关联。
                             </div>
-                            <div style="font-size: 13px; color: #fff;">
-                                2025年安全模式处理次数 <b style="color: #ef4444; font-size: 16px;">20+</b>
+                            <div style="font-size: 15px; color: #fff;">
+                                2025年安全模式处理次数 <b style="color: #ef4444; font-size: 18px;">20+</b>
                             </div>
                         </div>
                     </div>
@@ -291,15 +327,15 @@
                     </div>
 
                     <!-- 痛点标题 -->
-                    <div style="font-size: 18px; font-weight: bold; color: #ef4444; margin-bottom: 15px; letter-spacing: 1px;">数据挖掘深度不足</div>
+                    <div style="font-size:22px; font-weight: bold; color: #ef4444; margin-bottom: 15px; letter-spacing: 1px;">数据挖掘深度不足</div>
 
                     <!-- 描述文字 -->
-                    <div style="font-size: 12px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; text-align: justify; padding: 0 10px;">
+                    <div style="font-size: 16px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; text-align: justify; padding: 0 10px;">
                         尽管我们拥有海量遥测，但受限于“全人工操作”的瓶颈，目前仅能完成基础统计和被动响应。
                     </div>
 
                     <!-- 底部警告框 -->
-                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px dashed rgba(239, 68, 68, 0.4); padding: 12px 15px; border-radius: 8px; font-size: 12px; color: #fca5a5; line-height: 1.5; text-align: center; width: 90%;">
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px dashed rgba(239, 68, 68, 0.4); padding: 12px 15px; border-radius: 8px; font-size: 16px; color: #fca5a5; line-height: 1.5; text-align: center; width: 90%;">
                         大量故障线索被迫搁置<br>高价值人力被低效损耗
                     </div>
                 </div>
@@ -326,7 +362,7 @@
                         
                         <!-- ★★★ 这里引用你的图片 ★★★ -->
                         <!-- 请确保 logo.png 在同一目录下，或者修改 src 为实际路径 -->
-                        <img src="logo.png" alt="GS-Vitalis Logo" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(59,130,246,0.5)); z-index: 2; animation: floatLogo 4s ease-in-out infinite;">
+                        <img src="doc/logo.png" alt="GS-Vitalis Logo" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(59,130,246,0.5)); z-index: 2; animation: floatLogo 4s ease-in-out infinite;">
                     </div>
                     
                     <!-- 文字 Slogan -->
@@ -352,14 +388,14 @@
                     <div class="glass-panel" style="padding: 25px 30px; display: flex; gap: 25px; align-items: flex-start; border-left: 4px solid #10b981; background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, rgba(15, 23, 42, 0.4) 100%); transition: transform 0.3s;">
                         <div style="min-width: 60px; height: 60px; background: rgba(16, 185, 129, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 30px;">📄</div>
                         <div style="flex: 1;">
-                            <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 10px;">全自动深度体检</div>
-                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 15px;">
+                            <div style="font-size: 22px; font-weight: bold; color: #fff; margin-bottom: 10px;">全自动深度体检</div>
+                            <div style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-bottom: 15px;">
                                 替代人工，定期对卫星进行全方位的“身体检查”。深度挖掘单机性能退化趋势，自动生成权威的健康诊断报告。
                             </div>
                             <div style="display: flex; gap: 10px;">
-                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">性能评估</span>
-                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">寿命预测</span>
-                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">自动报告</span>
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">性能评估</span>
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">寿命预测</span>
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">自动报告</span>
                             </div>
                         </div>
                     </div>
@@ -368,14 +404,14 @@
                     <div class="glass-panel" style="padding: 25px 30px; display: flex; gap: 25px; align-items: flex-start; border-left: 4px solid #3b82f6; background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(15, 23, 42, 0.4) 100%); transition: transform 0.3s;">
                         <div style="min-width: 60px; height: 60px; background: rgba(59, 130, 246, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 30px;">🧠</div>
                         <div style="flex: 1;">
-                            <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 10px;">伴随式专家辅助</div>
-                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 15px;">
+                            <div style="font-size: 22px; font-weight: bold; color: #fff; margin-bottom: 10px;">伴随式专家辅助</div>
+                            <div style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-bottom: 15px;">
                                 内嵌姿轨控专家知识库。当发生异常（如安全模式）时，能基于先验经验快速关联数据，提供专业的处置参考意见。
                             </div>
                             <div style="display: flex; gap: 10px;">
-                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">知识图谱</span>
-                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">归因分析</span>
-                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">决策建议</span>
+                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">知识图谱</span>
+                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">归因分析</span>
+                                <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.3);">决策建议</span>
                             </div>
                         </div>
                     </div>
@@ -467,12 +503,14 @@
                         <!-- Step 1: Atomic Tools -->
                         <div class="step-box" style="border-left: 3px solid #3b82f6;">
                             <div class="step-header" style="color: #93c5fd; font-size: 13px;">
-                                <span class="step-num">01</span> 原子工具层 (Atomic Tools)
+                                <span class="step-num">01</span> 原子工具层 (可复制、可拓展)
                             </div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
                                 <div class="atom-tag">📡 姿轨控</div>
                                 <div class="atom-tag">⚡ 能源</div>
                                 <div class="atom-tag">💻 星务</div>
+                                <div class="atom-tag">🎛️ 综电</div>
+                                <div class="atom-tag">🌡️ 热控</div>
                                 <div class="atom-tag dashed">+ 扩展位</div>
                             </div>
                         </div>
@@ -498,7 +536,6 @@
                             </div>
                             <div style="font-size: 12px; color: #e2e8f0; margin-top: 5px; line-height: 1.4;">
                                 <span style="font-size: 16px; margin-right: 5px;">🧠</span> 结合 <b>专家知识库</b> 进行推理<br>
-                                <span style="color: #a78bfa; font-style: italic;">"判据：高纬+少星 = 安全故障"</span>
                             </div>
                         </div>
 
@@ -552,10 +589,10 @@
 
                         <!-- 功能文字描述 -->
                         <div style="margin-top: 15px; background: rgba(139,92,246,0.1); border: 1px dashed #8b5cf6; border-radius: 8px; padding: 12px;">
-                            <div style="font-size: 12px; color: #c4b5fd; font-weight: bold; margin-bottom: 5px;">
+                            <div style="font-size: 16px; color: #c4b5fd; font-weight: bold; margin-bottom: 5px;">
                                 🔄 历史回溯与指标对比
                             </div>
-                            <div style="font-size: 11px; color: #cbd5e1; line-height: 1.5; text-align: justify;">
+                            <div style="font-size: 15px; color: #cbd5e1; line-height: 1.5; text-align: justify;">
                                 系统自动归档所有历史报告。在生成新月报时，能够<b>自动调取</b>上述历史文件中的关键指标（如摩擦力矩、衰减率），进行<b>同环比分析</b>，精准识别性能退化趋势。
                             </div>
                         </div>
@@ -646,32 +683,36 @@
                     <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
                         
                         <!-- Redmine Big Card -->
-                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #ef4444; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-size: 32px; font-weight: 800; color: #fff;">500+</div>
-                                <div style="font-size: 12px; color: #fca5a5;">Redmine 问题单</div>
+                        <!-- 改动：添加 flex: 1，让卡片自动占满高度的三分之一，增加垂直居中 -->
+                        <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 0 20px; border-radius: 8px; border-left: 4px solid #ef4444; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; flex-direction: column; justify-content: center;">
+                                <div style="font-size: 36px; font-weight: 800; color: #fff; line-height: 1;">500+</div>
+                                <div style="font-size: 14px; color: #fca5a5; margin-top: 4px;">Redmine 问题单</div>
                             </div>
-                            <div style="font-size: 24px;">🐞</div>
+                            <div style="font-size: 32px; opacity: 0.8;">🐞</div>
                         </div>
 
                         <!-- On-orbit Big Card -->
-                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #f97316; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-size: 32px; font-weight: 800; color: #fff;">100+</div>
-                                <div style="font-size: 12px; color: #fdba74;">在轨典型故障</div>
+                        <!-- 改动：同上，添加 flex: 1 -->
+                        <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 0 20px; border-radius: 8px; border-left: 4px solid #f97316; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; flex-direction: column; justify-content: center;">
+                                <div style="font-size: 36px; font-weight: 800; color: #fff; line-height: 1;">100+</div>
+                                <div style="font-size: 14px; color: #fdba74; margin-top: 4px;">在轨典型故障</div>
                             </div>
-                            <div style="font-size: 24px;">🛰️</div>
+                            <div style="font-size: 32px; opacity: 0.8;">🛰️</div>
                         </div>
 
                         <!-- Pain Points List -->
-                        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed #666; flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                            <div style="color: #cbd5e1; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 5px;">
-                                ⚠️ 核心痛点
+                        <!-- 改动：flex 改为 1.2 (稍微比上面大一点点即可)，字体加大 -->
+                        <div style="flex: 1.2; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; border: 1px dashed #555; display: flex; flex-direction: column; justify-content: center;">
+                            <div style="color: #e2e8f0; font-size: 15px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 8px; display: flex; align-items: center;">
+                                <span style="margin-right: 8px;">⚠️</span> 核心痛点
                             </div>
-                            <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #94a3b8; line-height: 1.8;">
-                                <li>内容缺失，描述模糊</li>
-                                <li>非结构化，难以检索</li>
-                                <li>经验随人员流失</li>
+                            <!-- 改动：增大字体到 14px，增加 li 的间距 -->
+                            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #cbd5e1; line-height: 2;">
+                                <li>内容缺失，描述模糊不清</li>
+                                <li>非结构化数据，难以检索</li>
+                                <li>宝贵经验随人员流失</li>
                             </ul>
                         </div>
 
@@ -1097,7 +1138,7 @@
                                     <div>• 磁强计A: <span style="color:#ef4444">+199</span></div>
                                     <div>• 磁强计B: <span style="color:#ef4444">+198</span></div>
                                     <div class="sub-reason">
-                                        🔗 <b>归因：</b>485通信
+                                        🧩 <b>处置措施：</b>485协议的磁强计，在回复数据时没有完全按照协议，发送停止位时间过短，属于硬件问题，可持续观察，暂不进行处理。
                                     </div>
                                 </div>
                             </div>
@@ -1108,7 +1149,7 @@
                                 <div class="sub-content">
                                     <div>• 星敏A/B Y轴超差: <span style="color:#f59e0b">>7"</span></div>
                                     <div class="sub-reason">
-                                        🧩 <b>归因：</b>数据频率影响分析结果，建议调整遥测下传频率。
+                                        🧩 <b>处置措施：</b>本次数据评估的遥测周期为8s，使用数据拟合方法进行噪声分析时，分析结果受数据频率影响较大，建议调整遥测下传频率再进行分析。
                                     </div>
                                 </div>
                             </div>
@@ -1118,8 +1159,9 @@
                 </div>
 
                 <!-- 右侧：AI 专家结论 (Conclusion) -->
-                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #8b5cf6; background: rgba(139,92,246,0.05); box-shadow: 0 0 30px rgba(139,92,246,0.1);">
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #8b5cf6; background: rgba(139,92,246,0.05); box-shadow: 0 0 30px rgba(139,92,246,0.1); height: 100%;">
                     
+                    <!-- 头部保持不变 -->
                     <div style="padding: 15px 20px; background: linear-gradient(90deg, rgba(139,92,246,0.2) 0%, rgba(139,92,246,0) 100%); border-bottom: 1px solid rgba(139,92,246,0.2); display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 24px;">🤖</span>
                         <div>
@@ -1128,55 +1170,65 @@
                         </div>
                     </div>
 
-                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- 内容区域：flex: 1 确保它占满剩余高度 -->
+                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
                         
                         <!-- 总体评价 -->
-                        <div style="display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                            <div style="text-align: center; padding-right: 15px; border-right: 1px solid #444;">
-                                <div style="font-size: 10px; color: #94a3b8;">整体健康度</div>
+                        <div style="display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
+                            <div style="text-align: center; padding-right: 15px; border-right: 1px solid #444; min-width: 80px;">
                                 <div style="font-size: 14px; font-weight: bold; color: #f59e0b;">中等风险</div>
                             </div>
-                            <div style="font-size: 12px; color: #cbd5e1; line-height: 1.4;">
-                                GNSS 系统存在 <b style="color:#ef4444;">3次危险故障</b>，磁强计通信严重，建议立即进行深度维护。
+                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.4;">
+                                GNSS 系统存在 <b style="color:#ef4444;">3次危险故障</b>，错误日志增长过多，建议人工介入筛查。
                             </div>
                         </div>
 
                         <!-- 处置建议 (Action) -->
-                        <div style="flex: 1; display: flex; flex-direction: column;">
-                            <div style="font-size: 13px; color: #fff; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center;">
+                        <!-- 这里加了 flex: 1，让它占据所有剩下的垂直空间 -->
+                        <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                            <div style="font-size: 15px; color: #fff; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; flex-shrink: 0;">
                                 <span style="background: #8b5cf6; width: 4px; height: 14px; margin-right: 8px; border-radius: 2px;"></span>
                                 专家处置建议 (Actions)
                             </div>
                             
-                            <div class="action-list">
-                                <div class="action-item">
-                                    <div class="act-icon red">1</div>
-                                    <div class="act-text">
-                                        <b>GNSS 危险故障排查：</b><br>
-                                        重点检查 27/29/30 日故障时段的接收机硬件状态及电源波动。
+                            <!-- 列表容器：关键修改 -->
+                            <!-- flex: 1 让列表容器撑满高度 -->
+                            <div class="action-list" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                                
+                                <!-- 每一个 item 都加上 flex: 1，让它们平分高度 -->
+                                <!-- 并添加了 display: flex 和 align-items: center 让内容垂直居中 -->
+                                <div class="action-item" style="flex: 1; display: flex; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 0 12px;">
+                                    <div class="act-icon red" style="flex-shrink: 0; width: 24px; height: 24px; line-height: 24px; text-align: center; background: rgba(239,68,68,0.2); color: #ef4444; border-radius: 50%; font-size: 12px; margin-right: 12px;">1</div>
+                                    <div class="act-text" style="font-size: 13px; color: #e2e8f0;">
+                                        <b style="color: #fff;">GNSS 危险故障排查：</b>
+                                        <span style="opacity: 0.8;">重点检查 27/29/30 日接收机硬件及电源。</span>
                                     </div>
                                 </div>
-                                <div class="action-item">
-                                    <div class="act-icon orange">2</div>
-                                    <div class="act-text">
-                                        <b>磁强计通信总线复核：</b><br>
-                                        检查 1553B 总线负载率，排除通信接口物理故障。
+
+                                <div class="action-item" style="flex: 1; display: flex; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 0 12px;">
+                                    <div class="act-icon orange" style="flex-shrink: 0; width: 24px; height: 24px; line-height: 24px; text-align: center; background: rgba(249,115,22,0.2); color: #f97316; border-radius: 50%; font-size: 12px; margin-right: 12px;">2</div>
+                                    <div class="act-text" style="font-size: 13px; color: #e2e8f0;">
+                                        <b style="color: #fff;">磁强计通信总线复核：</b>
+                                        <span style="opacity: 0.8;">硬件通信问题，可持续观察再做处置。</span>
                                     </div>
                                 </div>
-                                <div class="action-item">
-                                    <div class="act-icon blue">3</div>
-                                    <div class="act-text">
-                                        <b>星敏参数标定：</b><br>
-                                        针对 Y 轴长期超差，建议在下个测控弧段上注修正后的噪声协方差矩阵 R。
+
+                                <div class="action-item" style="flex: 1; display: flex; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 0 12px;">
+                                    <div class="act-icon blue" style="flex-shrink: 0; width: 24px; height: 24px; line-height: 24px; text-align: center; background: rgba(59,130,246,0.2); color: #3b82f6; border-radius: 50%; font-size: 12px; margin-right: 12px;">3</div>
+                                    <div class="act-text" style="font-size: 13px; color: #e2e8f0;">
+                                        <b style="color: #fff;">星敏噪声超差：</b>
+                                        <span style="opacity: 0.8;">建议加快数据下传频率，重新分析。</span>
                                     </div>
                                 </div>
-                                <div class="action-item">
-                                    <div class="act-icon gray">4</div>
-                                    <div class="act-text">
-                                        <b>系统级监控：</b><br>
-                                        调低错误日志报警阈值，密切关注后续增量。
+
+                                <div class="action-item" style="flex: 1; display: flex; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 0 12px;">
+                                    <div class="act-icon gray" style="flex-shrink: 0; width: 24px; height: 24px; line-height: 24px; text-align: center; background: rgba(148,163,184,0.2); color: #94a3b8; border-radius: 50%; font-size: 12px; margin-right: 12px;">4</div>
+                                    <div class="act-text" style="font-size: 13px; color: #e2e8f0;">
+                                        <b style="color: #fff;">系统级监控：</b>
+                                        <span style="opacity: 0.8;">建议下传日志文件，详细分析。</span>
                                     </div>
                                 </div>
+
                             </div>
                         </div>
 
@@ -1218,114 +1270,412 @@
                 .act-icon.blue { background: #3b82f6; }
                 .act-icon.gray { background: #94a3b8; }
                 
-                .act-text { font-size: 12px; color: #cbd5e1; line-height: 1.4; }
+                .act-text { font-size: 14px; color: #cbd5e1; line-height: 1.4; }
                 .act-text b { color: #fff; }
             </style>
         </div>
 
-<!-- P8: 历年对比与预测 (概念预览页) -->
-        <div class="slide" data-id="8">
-            <div class="slide-header" style="margin-bottom: 30px; border-bottom: none;">
-                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                    项目成果：历年指标对比及健康预测
-                </div>
-                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
-                    Historical Data Comparison
-                </div>
-            </div>
+<!-- P8: 历年对比与预测 (真实震荡数据版) -->
+<div class="slide" data-id="8">
+    <div class="slide-header" style="margin-bottom: 20px; border-bottom: none;">
+        <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            趋势分析与寿命预测
+        </div>
+        <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
+            Historical Trend Analysis & Health Prediction
+        </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; height: 500px; align-items: stretch;">
+        
+        <!-- 左侧：历史趋势挖掘 (PieSat-B01) -->
+        <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.02);">
             
-            <div style="position: relative; height: 500px; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.4);">
+            <!-- 标题栏 -->
+            <div style="padding: 12px 20px; border-bottom: 1px solid rgba(245,158,11,0.2); display: flex; justify-content: space-between; align-items: center; background: rgba(245,158,11,0.1);">
+                <div style="font-weight: bold; color: #fcd34d;">📉 关键单机性能退化 (PieSat-B01)</div>
+                <div style="font-size: 11px; color: #cbd5e1; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px;">2023.03 - 2024.06 (Monthly)</div>
+            </div>
+
+            <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
                 
-                <!-- 背景：概念图表 (模糊处理，暗示未来功能) -->
-                <div style="opacity: 0.3; filter: blur(3px); transform: scale(0.98); height: 100%; display: flex; flex-direction: column; padding: 40px;">
-                    <!-- 模拟图表标题 -->
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
-                        <div style="font-size: 24px; font-weight: bold; color: #94a3b8;">📉 关键单机寿命预测趋势 (Lifetime Prediction)</div>
-                        <div style="display: flex; gap: 20px;">
-                            <div style="width: 100px; height: 10px; background: #334155; border-radius: 5px;"></div>
-                            <div style="width: 100px; height: 10px; background: #334155; border-radius: 5px;"></div>
-                        </div>
+                <!-- 图表1：稳态电流 (真实震荡：前期杂乱，后期大幅震荡上升) -->
+                <div class="chart-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <div class="chart-title">1. 飞轮A稳态电流 (Steady Current)</div>
+                        <div style="font-size: 11px; color: #64748b;">* 摩擦力矩等效参数</div>
                     </div>
                     
-                    <!-- 模拟曲线 -->
-                    <svg width="100%" height="300" viewBox="0 0 1000 300" preserveAspectRatio="none" style="overflow: visible;">
-                        <!-- 坐标轴 -->
-                        <line x1="0" y1="300" x2="1000" y2="300" stroke="#475569" stroke-width="2"/>
-                        <line x1="0" y1="300" x2="0" y2="0" stroke="#475569" stroke-width="2"/>
-                        
-                        <!-- 历史数据 (实线) -->
-                        <path d="M0,50 Q200,80 400,120 T600,180" fill="none" stroke="#3b82f6" stroke-width="4"/>
-                        
-                        <!-- 预测数据 (虚线) -->
-                        <path d="M600,180 Q800,240 1000,280" fill="none" stroke="#f59e0b" stroke-width="4" stroke-dasharray="10,10"/>
-                        
-                        <!-- 关键点 -->
-                        <circle cx="600" cy="180" r="8" fill="#fff" stroke="#3b82f6" stroke-width="3"/>
-                        <text x="600" y="160" fill="#fff" font-size="16" text-anchor="middle">Current</text>
-                        
-                        <circle cx="1000" cy="280" r="8" fill="#ef4444"/>
-                        <text x="1000" y="260" fill="#ef4444" font-size="16" text-anchor="end">EoL (2028)</text>
+                    <div class="chart-container">
+                        <svg width="100%" height="100%" viewBox="0 0 320 100" preserveAspectRatio="none" style="overflow: visible;">
+                            <!-- 网格线 -->
+                            <line x1="30" y1="20" x2="320" y2="20" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2"/>
+                            <line x1="30" y1="55" x2="320" y2="55" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2"/>
+                            <line x1="30" y1="90" x2="320" y2="90" stroke="#334155" stroke-width="0.5"/>
+
+                            <!-- 坐标轴文字 -->
+                            <text x="25" y="93" fill="#64748b" font-size="9" text-anchor="end">20mA</text>
+                            <text x="25" y="58" fill="#64748b" font-size="9" text-anchor="end">30mA</text>
+                            <text x="25" y="23" fill="#64748b" font-size="9" text-anchor="end">40mA</text>
+                            
+                            <!-- X轴时间 -->
+                            <text x="30" y="103" fill="#64748b" font-size="9">23.03</text>
+                            <text x="200" y="103" fill="#64748b" font-size="9" text-anchor="middle">24.01</text>
+                            <text x="320" y="103" fill="#64748b" font-size="9" text-anchor="end">24.06</text>
+
+                            <!-- 数据走势逻辑：
+                                 Y=90是20mA(低), Y=20是40mA(高).
+                                 前期(22mA左右): 80-88之间无序波动.
+                                 后期(爬升): 剧烈波动中上升.
+                            -->
+                            <polyline points="
+                                30,88 49,82 68,85 87,79 106,83 125,78 144,81 163,75 182,78 201,72 
+                                220,60 239,65 258,52 277,48 296,35 315,20
+                            " fill="none" stroke="#f59e0b" stroke-width="1.5" />
+
+                            <!-- 绘制数据点 -->
+                            <g fill="#1e293b" stroke="#f59e0b" stroke-width="1">
+                                <circle cx="30" cy="88" r="2" />
+                                <circle cx="49" cy="82" r="2" /> <!-- 突然升高 -->
+                                <circle cx="68" cy="85" r="2" /> <!-- 回落 -->
+                                <circle cx="87" cy="79" r="2" /> <!-- 又高 -->
+                                <circle cx="106" cy="83" r="2" />
+                                <circle cx="125" cy="78" r="2" />
+                                <circle cx="144" cy="81" r="2" />
+                                <circle cx="163" cy="75" r="2" /> <!-- 局部高点 -->
+                                <circle cx="182" cy="78" r="2" />
+                                <circle cx="201" cy="72" r="2" /> <!-- 恶化开始 -->
+                                
+                                <circle cx="220" cy="60" r="2" /> <!-- 大幅爬升 -->
+                                <circle cx="239" cy="65" r="2" /> <!-- 虚假回调 (看起来好转了) -->
+                                <circle cx="258" cy="52" r="2" /> <!-- 继续恶化 -->
+                                <circle cx="277" cy="48" r="2" />
+                                <circle cx="296" cy="35" r="2" />
+                                <circle cx="315" cy="20" r="2.5" fill="#ef4444" stroke="#ef4444"/>
+                            </g>
+                            
+                            <!-- 辅助标注线 -->
+                            <line x1="201" y1="90" x2="201" y2="20" stroke="#f59e0b" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- 图表2：转速控制精度 (真实震荡：控制死区增大，波动加剧) -->
+                <div class="chart-box">
+                    <div class="chart-title">2. 转速控制精度 (Speed Control Accuracy)</div>
+                    <div class="chart-container">
+                        <svg width="100%" height="100%" viewBox="0 0 320 100" preserveAspectRatio="none" style="overflow: visible;">
+                             <!-- 网格线 -->
+                             <line x1="30" y1="20" x2="320" y2="20" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2"/>
+                             <line x1="30" y1="55" x2="320" y2="55" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2"/>
+                             <line x1="30" y1="90" x2="320" y2="90" stroke="#334155" stroke-width="0.5"/>
+
+                             <!-- Y轴刻度 (rpm) -->
+                             <text x="25" y="93" fill="#64748b" font-size="9" text-anchor="end">0.4</text>
+                             <text x="25" y="58" fill="#64748b" font-size="9" text-anchor="end">0.7</text>
+                             <text x="25" y="23" fill="#64748b" font-size="9" text-anchor="end">1.0</text>
+                             <text x="10" y="50" fill="#64748b" font-size="9" transform="rotate(-90, 10, 50)" text-anchor="middle">rpm</text>
+
+                             <!-- X轴时间 -->
+                             <text x="30" y="103" fill="#64748b" font-size="9">23.03</text>
+                             <text x="200" y="103" fill="#64748b" font-size="9" text-anchor="middle">24.01</text>
+                             <text x="320" y="103" fill="#64748b" font-size="9" text-anchor="end">24.06</text>
+
+                             <!-- 数据走势逻辑：
+                                  前期(0.5): 75-85 之间无规律跳动.
+                                  后期: 整体向上，但中间有显著的"回光返照" (控制环路试图修正).
+                             -->
+                             <polyline points="
+                                30,80 49,84 68,76 87,79 106,75 125,78 144,72 163,76 182,70 201,68
+                                220,55 239,60 258,45 277,35 296,40 315,20
+                             " fill="none" stroke="#fca5a5" stroke-width="1.2" />
+
+                             <!-- 绘制数据点 -->
+                             <g fill="#1e293b" stroke="#fca5a5" stroke-width="1">
+                                <circle cx="30" cy="80" r="1.5" />
+                                <circle cx="49" cy="84" r="1.5" /> <!-- 好转 -->
+                                <circle cx="68" cy="76" r="1.5" /> <!-- 变差 -->
+                                <circle cx="87" cy="79" r="1.5" /> 
+                                <circle cx="106" cy="75" r="1.5" />
+                                <circle cx="125" cy="78" r="1.5" />
+                                <circle cx="144" cy="72" r="1.5" /> <!-- 局部尖峰 -->
+                                <circle cx="163" cy="76" r="1.5" />
+                                <circle cx="182" cy="70" r="1.5" />
+                                <circle cx="201" cy="68" r="1.5" /> <!-- 趋势转折 -->
+                                
+                                <circle cx="220" cy="55" r="1.5" /> <!-- 急剧恶化 -->
+                                <circle cx="239" cy="60" r="1.5" /> <!-- 修正回调 (模拟控制试图压制误差) -->
+                                <circle cx="258" cy="45" r="1.5" /> <!-- 压制失败，继续恶化 -->
+                                <circle cx="277" cy="35" r="1.5" />
+                                <circle cx="296" cy="40" r="1.5" /> <!-- 最后的波动 -->
+                                <circle cx="315" cy="20" r="2.5" fill="#ef4444" stroke="#ef4444"/>
+                             </g>
+                             
+                             <!-- 辅助分界线 -->
+                             <line x1="201" y1="90" x2="201" y2="20" stroke="#fca5a5" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>
+                             <text x="205" y="30" fill="#fca5a5" font-size="9" opacity="0.8">趋势恶化点</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- 结论更新 -->
+                <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 10px; font-size: 12px; color: #fca5a5; line-height: 1.4;">
+                    <b style="color:#fff;">💡 诊断结论：</b><br>
+                    监测到 24.01 后稳态电流与控制精度同步恶化。精度在半年内从 <b style="color:#fff;">0.5rpm 震荡爬升至 1.0rpm</b>，伴随不规则噪声增强，符合“卡死前夕”的性能衰退特征。
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：蓄电池容量预测 (保持不变) -->
+        <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(59, 130, 246, 0.02);">
+            <div style="padding: 12px 20px; border-bottom: 1px solid rgba(59,130,246,0.2); display: flex; justify-content: space-between; align-items: center; background: rgba(59,130,246,0.1);">
+                <div style="font-weight: bold; color: #93c5fd;">🔋 蓄电池容量衰减预测模型</div>
+                <div style="font-size: 11px; color: #cbd5e1;">Method: Shadow Discharge</div>
+            </div>
+
+            <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+                <!-- 1. 原理展示 -->
+                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.1);">
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px; line-height: 1.5;">
+                        利用阴影期放电数据（两轨横向对比：<b style="color:#e2e8f0;">ΔT &lt; 1°C, I &lt; 0.2A</b>），基于拟合关系修正系数：
+                    </div>
+                    <div style="font-family: 'Cambria Math', 'Times New Roman', serif; font-size: 12px; color: #6ee7b7; text-align: center; background: rgba(16,185,129,0.05); padding: 8px; border-radius: 4px; letter-spacing: 0.5px;">
+                        Capacity = -0.09328V<sup>3</sup> + 11.09V<sup>2</sup> - 439.4V + 5806
+                    </div>
+                </div>
+
+                <!-- 2. 预测图表 -->
+                <div style="flex: 1; position: relative; margin-top: 10px;">
+                    <div style="position: absolute; top:0; left:0; font-size: 11px; font-weight: bold; color: #cbd5e1;">
+                        当前可用容量 (Ah) vs 电压 (V)
+                    </div>
+                    <svg width="100%" height="100%" viewBox="0 0 400 200" preserveAspectRatio="none" style="overflow: visible;">
+                        <line x1="30" y1="180" x2="380" y2="180" stroke="#64748b" stroke-width="1"/>
+                        <line x1="30" y1="180" x2="30" y2="20" stroke="#64748b" stroke-width="1"/>
+                        <text x="30" y="195" font-size="10" fill="#64748b">36.5V</text>
+                        <text x="380" y="195" font-size="10" fill="#64748b" text-anchor="end">45.5V</text>
+                        <text x="25" y="30" font-size="10" fill="#64748b" text-anchor="end">45Ah</text>
+                        <path d="M30,170 Q100,160 180,100 T250,50" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+                        <path d="M250,50 Q300,30 380,25" fill="none" stroke="#60a5fa" stroke-width="2" stroke-dasharray="5,3" stroke-opacity="0.6"/>
+                        <circle cx="250" cy="50" r="4" fill="#fff" stroke="#3b82f6" stroke-width="2"/>
+                        <rect x="230" y="20" width="60" height="20" rx="4" fill="rgba(59,130,246,0.9)"/>
+                        <text x="260" y="34" font-size="10" fill="#fff" text-anchor="middle">Current</text>
+                        <line x1="30" y1="25" x2="380" y2="25" stroke="#10b981" stroke-width="1" stroke-dasharray="4,4"/>
+                        <text x="380" y="20" font-size="10" fill="#10b981" text-anchor="end">设计容量: 44Ah</text>
                     </svg>
                 </div>
 
-                <!-- 前景：建设中遮罩 (核心展示区) -->
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15,23,42,0.8) 0%, rgba(15,23,42,0.95) 100%);">
-                    
-                    <div style="text-align: center; border: 1px solid rgba(245,158,11,0.3); padding: 50px 80px; border-radius: 20px; background: rgba(245,158,11,0.05); box-shadow: 0 0 50px rgba(245,158,11,0.1);">
-                        <div style="font-size: 60px; margin-bottom: 20px;">🚧</div>
-                        <div style="font-size: 32px; font-weight: bold; color: #fcd34d; margin-bottom: 15px;">功能开发中 (In Development)</div>
-                        <div style="font-size: 16px; color: #cbd5e1; line-height: 1.8; max-width: 600px; margin: 0 auto;">
-                            基于已沉淀的 <b>JSON 数据资产</b>，下一阶段将引入时序预测模型（Time-Series Forecasting）。<br>
-                            旨在实现跨周期指标对比与单机剩余寿命（RUL）预测。
-                        </div>
-                        
-                        <!-- 规划特新列表 -->
-                        <div style="display: flex; gap: 20px; justify-content: center; margin-top: 40px;">
-                            <div class="future-tag">
-                                <span style="color:#f59e0b;">●</span> 跨星横向对比
-                            </div>
-                            <div class="future-tag">
-                                <span style="color:#f59e0b;">●</span> 全生命周期回溯
-                            </div>
-                            <div class="future-tag">
-                                <span style="color:#f59e0b;">●</span> 寿命预警模型
-                            </div>
-                        </div>
-                    </div>
-
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                     <div class="kpi-box">
+                        <div class="kpi-val">92%</div>
+                        <div class="kpi-lbl">当前SOH健康度</div>
+                     </div>
+                     <div class="kpi-box">
+                        <div class="kpi-val warning">2.5年</div>
+                        <div class="kpi-lbl">预计剩余寿命</div>
+                     </div>
                 </div>
-
             </div>
-
-            <style>
-                .future-tag {
-                    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-                    padding: 8px 16px; border-radius: 30px; font-size: 14px; color: #e2e8f0;
-                }
-            </style>
         </div>
-<!-- P9: 用户故事 (内容预留页) -->
-        <div class="slide" data-id="9">
-            <div class="slide-header" style="margin-bottom: 30px; border-bottom: none;">
-                <div class="slide-title" style="font-size: 38px; white-space: nowrap; overflow: visible; background: linear-gradient(to right, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                    用户故事
-                </div>
-                <div class="slide-sub" style="font-size: 13px; letter-spacing: 1px; color: #64748b; margin-top: 5px;">
-                    User Stories & Application Scenarios
-                </div>
+
+    </div>
+
+    <style>
+        .chart-box {
+            flex: 1; display: flex; flex-direction: column;
+            background: rgba(255,255,255,0.03); border-radius: 6px; padding: 10px; margin-bottom: 5px;
+        }
+        .chart-title { font-size: 14px; color: #94a3b8; font-weight: bold; }
+        .chart-container { flex: 1; width: 100%; min-height: 0; padding-left: 5px; }
+        
+        .kpi-box {
+            flex: 1; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 8px; text-align: center;
+        }
+        .kpi-val { font-size: 18px; font-weight: bold; color: #fff; }
+        .kpi-val.warning { color: #fcd34d; }
+        .kpi-lbl { font-size: 10px; color: #94a3b8; }
+    </style>
+</div>
+
+<!-- P9: 用户故事 (终极修正: 英文靠右 + 无滚动条 + 大字体) -->
+<div class="slide" data-id="9">
+    
+    <!-- 1. 头部区域 (Header) -->
+    <!-- 修正点：英文副标题移至右侧，与 Logo 组成右侧信息块 -->
+    <div class="slide-header" style="height: 70px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px;">
+        
+        <!-- 左侧：中文主标题 -->
+        <div class="slide-title" style="font-size: 40px; background: linear-gradient(to right, #fff, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: 1px; line-height: 1;">
+            用户故事：效率的极致提升
+        </div>
+        
+        <!-- 右侧：Logo + 英文副标题 (垂直排列，右对齐) -->
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <!-- 英文副标题 (靠右) -->
+            <div class="slide-sub" style="font-size: 12px; letter-spacing: 0.5px; color: #64748b; font-family: 'Arial', sans-serif; text-transform: uppercase; font-weight: bold;">
+                USER STORY: ON-ORBIT SATELLITE STATUS ASSESSMENT TASK ASSIGNMENT
             </div>
+        </div>
+    </div>
+    
+    <!-- 2. 主体内容区 (高度固定 500px，确保不溢出) -->
+    <div style="display: flex; gap: 25px; height: 500px;">
+        
+        <!-- 左侧: 任务分配表 -->
+        <div class="glass-panel" style="flex: 0 0 66%; display: flex; flex-direction: column; border-top: 4px solid #3b82f6; background: rgba(15, 23, 42, 0.85); border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
             
-            <!-- 内容占位区 -->
-            <div class="glass-panel" style="height: 500px; display: flex; align-items: center; justify-content: center; border-top: 4px solid #a78bfa; background: rgba(167, 139, 250, 0.02);">
-                
-                <div style="text-align: center; color: #64748b; border: 2px dashed #475569; padding: 60px 100px; border-radius: 12px; background: rgba(0,0,0,0.2);">
-                    <div style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;">📝</div>
-                    <div style="font-size: 18px; font-weight: bold; color: #94a3b8;">内容规划中</div>
-                    <div style="font-size: 12px; margin-top: 8px; opacity: 0.6;">Content Pending...</div>
+            <!-- 表头 -->
+            <div style="display: flex; height: 50px; background: rgba(30, 58, 138, 0.4); border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
+                <div class="th" style="width: 15%;">人员</div>
+                <div class="th" style="width: 55%;">卫星型号</div>
+                <!-- 复合表头 -->
+                <div style="width: 30%; display: flex; flex-direction: column;">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #93c5fd; font-size: 13px; font-weight: bold;">数量 (颗)</div>
+                    <div style="flex: 1; display: flex;">
+                        <div class="th-sub" style="border-right: 1px solid rgba(255,255,255,0.1);">2024</div>
+                        <div class="th-sub">2025</div>
+                    </div>
                 </div>
+            </div>
 
+            <!-- 数据行容器 (自动均分高度，无滚动条) -->
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                <!-- 行 1 -->
+                <div class="t-row">
+                    <div class="td-center">川</div>
+                    <div class="td-left">首发星、诺亚</div>
+                    <div class="td-num col-sep">2</div>
+                    <div class="td-num">2</div>
+                </div>
+                <!-- 行 2 -->
+                <div class="t-row zebra">
+                    <div class="td-center">有松、少康</div>
+                    <div class="td-left">GS02、2AP01~03、2BP01~02</div>
+                    <div class="td-num col-sep">6</div>
+                    <div class="td-num">6</div>
+                </div>
+                <!-- 行 3 -->
+                <div class="t-row">
+                    <div class="td-center">夏</div>
+                    <div class="td-left">四象光学、红外、江淮</div>
+                    <div class="td-num col-sep">3</div>
+                    <div class="td-num">3</div>
+                </div>
+                <!-- 行 4 -->
+                <div class="t-row zebra">
+                    <div class="td-center">晓涛、一凡</div>
+                    <div class="td-left">宏图1+3、NBS</div>
+                    <div class="td-num col-sep">5</div>
+                    <div class="td-num">5</div>
+                </div>
+                <!-- 行 5 (重点行) -->
+                <div class="t-row zebra">
+                    <div class="td-center">震</div>
+                    <div class="td-left">星网试验星、组网星、新星</div>
+                    <div class="td-num col-sep">5</div>
+                    <div class="td-num">11</div>
+                </div>
+                <!-- 行 6 -->
+                <div class="t-row zebra">
+                    <div class="td-center">飞</div>
+                    <div class="td-left">星云一标</div>
+                    <div class="td-num col-sep empty">-</div>
+                    <div class="td-num">2</div>
+                </div>
+                <!-- 行 7 -->
+                <div class="t-row">
+                    <div class="td-center">钊</div>
+                    <div class="td-left">宏图1+7</div>
+                    <div class="td-num col-sep empty">-</div>
+                    <div class="td-num">4</div>
+                </div>
+                <!-- 行 8 -->
+                <div class="t-row zebra">
+                    <div class="td-center">昊、喆</div>
+                    <div class="td-left">激光载荷</div>
+                    <div class="td-num col-sep empty">-</div>
+                    <div class="td-num empty">-</div>
+                </div>
+                 <!-- 行 9 -->
+                 <div class="t-row">
+                    <div class="td-center">亮、铭恩</div>
+                    <div class="td-left">电推系统</div>
+                    <div class="td-num col-sep empty">-</div>
+                    <div class="td-num empty">-</div>
+                </div>
             </div>
         </div>
+
+        <!-- 右侧: 效率与流程 -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
+            
+            <!-- 效率卡片 -->
+            <div style="height: 100px; background: linear-gradient(145deg, rgba(30, 58, 138, 0.6), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; color: #94a3b8; margin-bottom: 5px;">传统模式</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #cbd5e1; text-decoration: line-through; opacity: 0.6;">2~3月</div>
+                </div>
+                <div style="font-size: 30px; color: #3b82f6; animation: pulse 2s infinite;">➜</div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; color: #60a5fa; font-weight: bold; margin-bottom: 5px;">AI 赋能</div>
+                    <div style="font-size: 32px; font-weight: 900; color: #fff; text-shadow: 0 0 20px rgba(59,130,246,0.6);">1~2周</div>
+                </div>
+            </div>
+
+            <!-- 流程图 -->
+            <div class="glass-panel" style="flex: 1; padding: 30px 25px; display: flex; flex-direction: column; justify-content: space-between; position: relative; border-radius: 10px; background: rgba(15, 23, 42, 0.6);">
+                <!-- 连线背景 -->
+                <div style="position: absolute; left: 49px; top: 50px; bottom: 50px; width: 3px; background: linear-gradient(to bottom, #1e40af, #059669); z-index: 0; opacity: 0.3;"></div>
+                
+                <div class="flow-item">
+                    <div class="flow-icon" style="background: #1e3a8a; border-color: #3b82f6;">💾</div>
+                    <div><div class="flow-title">海量数据</div><div class="flow-sub">Massive Data Ingestion</div></div>
+                </div>
+
+                <div class="flow-item">
+                    <div class="flow-icon" style="background: #0369a1; border-color: #0ea5e9;">🔍</div>
+                    <div><div class="flow-title">筛查问题</div><div class="flow-sub">Anomaly Detection</div></div>
+                </div>
+
+                <div class="flow-item">
+                    <div class="flow-icon" style="background: #0f766e; border-color: #2dd4bf;">🛠️</div>
+                    <div><div class="flow-title">解决问题</div><div class="flow-sub">Troubleshooting</div></div>
+                </div>
+
+                <div class="flow-item">
+                    <div class="flow-icon" style="background: #065f46; border-color: #34d399; box-shadow: 0 0 15px rgba(52, 211, 153, 0.4);">🛡️</div>
+                    <div><div class="flow-title" style="color: #34d399; font-size: 18px;">维稳、延寿</div><div class="flow-sub">Maintenance</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .th { display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #94a3b8; border-right: 1px solid rgba(255,255,255,0.1); }
+        .th-sub { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #60a5fa; }
+        
+        /* 关键：行高度自动分配，禁止换行和滚动 */
+        .t-row { flex: 1; display: flex; border-bottom: 1px solid rgba(255,255,255,0.03); min-height: 0; }
+        
+        .td-center { width: 15%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #e2e8f0; border-right: 1px solid rgba(255,255,255,0.05); }
+        .td-left { width: 55%; display: flex; align-items: center; padding-left: 15px; font-size: 15px; color: #fff; border-right: 1px solid rgba(255,255,255,0.05); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .td-num { width: 15%; display: flex; align-items: center; justify-content: center; font-family: 'Arial', sans-serif; font-size: 18px; font-weight: bold; color: #fff; }
+        
+        .col-sep { border-right: 2px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.1); }
+        .zebra { background: rgba(255,255,255,0.02); }
+        .highlight { background: rgba(245, 158, 11, 0.15); border-left: 4px solid #f59e0b; }
+        .empty { opacity: 0.2; font-weight: normal; }
+
+        .flow-item { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; }
+        .flow-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; border: 2px solid; flex-shrink: 0; transition: transform 0.3s; }
+        .flow-title { font-size: 17px; font-weight: bold; color: #e2e8f0; margin-bottom: 2px; }
+        .flow-sub { font-size: 12px; color: #64748b; }
+        
+        @keyframes pulse { 0% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.8; transform: scale(1); } }
+    </style>
+</div>
+
+
 <!-- P10: 项目展望 (GS-Vitalis Pro) -->
         <div class="slide" data-id="10">
             <div class="slide-header" style="margin-bottom: 30px; border-bottom: none;">
