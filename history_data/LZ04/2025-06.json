@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-07-01 12:00:00",
+  "month": "2025-06",
+  "metrics": {
+    "orbit_height": 509.8144,
+    "ltdn_hour": 10.3636,
+    
+    "attitude_accuracy": 0.00273,
+    "attitude_stability": 0.002286,
+    
+    "stt_a_noise_x": 1.775,
+    "stt_a_noise_y": 4.2235,
+    "stt_a_noise_z": 16.7890,
+    
+    "gyro_a_noise_x": 0.00003098,
+    "gyro_a_noise_y": -0.00014967,
+    "gyro_a_noise_z": -0.00000046,
+    
+    "obdh_reset_count": 0,
+    "gnss_fault_count": 9711
+  }
+}
