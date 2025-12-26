@@ -1,0 +1,10 @@
+doc/knowledge.yaml：诊断知识库
+doc/satellite.yaml：遥测配置文件
+PPT/DEMO.html：体检月报演示用例
+PPT/GS-Vitalis.html：演讲PPT
+mcp_server：主函数
+.vscode/mcp.json：服务配置项
+
+运行顺序：
+先运行mcp_server
+再点击mcp.json，启动
