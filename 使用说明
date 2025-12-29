@@ -1,4 +1,5 @@
-doc/knowledge.yaml：诊断知识库
+doc/knowledge.yaml：代码用诊断知识库
+doc/银河航天卫星诊断宝典.md：演示用知识库
 doc/satellite.yaml：遥测配置文件
 PPT/DEMO.html：体检月报演示用例
 PPT/GS-Vitalis.html：演讲PPT
