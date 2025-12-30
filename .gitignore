@@ -1,0 +1,14 @@
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 虚拟环境 (确保 env 以后也不会被误传)
+env/
+venv/
+.venv/
+
+# VSCode 配置 (可选，建议忽略)
+.vscode/
+
+# 操作系统生成的文件
+.DS_Store
